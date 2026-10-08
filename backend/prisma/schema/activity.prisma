@@ -1,0 +1,23 @@
+model Activity {
+  id             String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  actorId        String @db.Uuid
+
+  action ActivityAction
+
+  entityType String
+  entityId   String
+
+  description String?
+  metadata    Json?
+
+  createdAt DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User         @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+  @@map("activities")
+}

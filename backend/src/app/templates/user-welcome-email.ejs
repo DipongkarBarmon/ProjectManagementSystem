@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to Project Management SaaS</title>
+</head>
+
+<body style="
+  margin: 0;
+  padding: 0;
+  background-color: #f8fafc;
+  font-family: Arial, Helvetica, sans-serif;
+">
+
+  <table
+    width="100%"
+    cellpadding="0"
+    cellspacing="0"
+    border="0"
+    style="
+      background-color: #f8fafc;
+      padding: 40px 15px;
+    "
+  >
+    <tr>
+
+      <td align="center">
+
+        <!-- Main Container -->
+        <table
+          width="100%"
+          cellpadding="0"
+          cellspacing="0"
+          border="0"
+          style="
+            max-width: 600px;
+            background-color: #ffffff;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+          "
+        >
+
+          <!-- Header -->
+          <tr>
+            <td
+              style="
+                background-color: #4f46e5;
+                padding: 35px 30px;
+                text-align: center;
+              "
+            >
+
+              <!-- Logo -->
+              <div
+                style="
+                  width: 60px;
+                  height: 60px;
+                  margin: 0 auto 15px;
+                  background-color: #ffffff;
+                  border-radius: 14px;
+                  line-height: 60px;
+                  font-size: 30px;
+                  font-weight: bold;
+                  color: #4f46e5;
+                "
+              >
+                ✓
+              </div>
+
+              <!-- Brand -->
+              <h1
+                style="
+                  margin: 0;
+                  color: #ffffff;
+                  font-size: 26px;
+                  font-weight: 700;
+                "
+              >
+                Welcome to Project Management SaaS!
+              </h1>
+
+              <p
+                style="
+                  margin: 8px 0 0;
+                  color: #e0e7ff;
+                  font-size: 14px;
+                "
+              >
+                Plan. Collaborate. Deliver.
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 35px 30px;">
+
+              <h2
+                style="
+                  margin: 0 0 15px;
+                  color: #0f172a;
+                  font-size: 22px;
+                "
+              >
+                Hello <%= name %>,
+              </h2>
+
+              <p
+                style="
+                  margin: 0 0 18px;
+                  color: #475569;
+                  font-size: 15px;
+                  line-height: 1.7;
+                "
+              >
+                Welcome to TaskFlow! We're excited to have you
+                on board. Your account has been successfully created.
+              </p>
+
+              <!-- Account Information -->
+              <table
+                width="100%"
+                cellpadding="0"
+                cellspacing="0"
+                border="0"
+                style="margin: 25px 0;"
+              >
+                <tr>
+
+                  <td
+                    style="
+                      background-color: #eef2ff;
+                      border: 1px solid #c7d2fe;
+                      border-left: 4px solid #4f46e5;
+                      border-radius: 8px;
+                      padding: 20px;
+                    "
+                  >
+
+                    <p
+                      style="
+                        margin: 0 0 12px;
+                        color: #3730a3;
+                        font-size: 14px;
+                        font-weight: bold;
+                      "
+                    >
+                      Your Account
+                    </p>
+
+                    <p
+                      style="
+                        margin: 0;
+                        color: #334155;
+                        font-size: 14px;
+                      "
+                    >
+                      <strong>Name:</strong> <%= name %>
+                    </p>
+
+                    <p
+                      style="
+                        margin: 8px 0 0;
+                        color: #334155;
+                        font-size: 14px;
+                      "
+                    >
+                      <strong>Email:</strong> <%= email %>
+                    </p>
+
+                  </td>
+
+                </tr>
+              </table>
+
+              <!-- Features -->
+              <p
+                style="
+                  margin: 0 0 15px;
+                  color: #0f172a;
+                  font-size: 16px;
+                  font-weight: bold;
+                "
+              >
+                What you can do with Project Management SaaS
+              </p>
+
+              <p
+                style="
+                  margin: 0 0 8px;
+                  color: #475569;
+                  font-size: 14px;
+                  line-height: 1.6;
+                "
+              >
+                ✓ Create and manage projects
+              </p>
+
+              <p
+                style="
+                  margin: 0 0 8px;
+                  color: #475569;
+                  font-size: 14px;
+                  line-height: 1.6;
+                "
+              >
+                ✓ Organize teams and members
+              </p>
+
+              <p
+                style="
+                  margin: 0 0 8px;
+                  color: #475569;
+                  font-size: 14px;
+                  line-height: 1.6;
+                "
+              >
+                ✓ Create and track tasks
+              </p>
+
+              <p
+                style="
+                  margin: 0 0 8px;
+                  color: #475569;
+                  font-size: 14px;
+                  line-height: 1.6;
+                "
+              >
+                ✓ Collaborate with your team
+              </p>
+
+              <p
+                style="
+                  margin: 0 0 22px;
+                  color: #475569;
+                  font-size: 14px;
+                  line-height: 1.6;
+                "
+              >
+                ✓ Track project progress and deadlines
+              </p>
+
+              <!-- CTA -->
+              <table
+                width="100%"
+                cellpadding="0"
+                cellspacing="0"
+                border="0"
+              >
+                <tr>
+
+                  <td
+                    align="center"
+                    style="padding: 10px 0 25px;"
+                  >
+
+                    <a
+                      href="<%= dashboardUrl %>/dashboard"
+                      style="
+                        display: inline-block;
+                        background-color: #4f46e5;
+                        color: #ffffff;
+                        text-decoration: none;
+                        padding: 13px 30px;
+                        border-radius: 8px;
+                        font-size: 14px;
+                        font-weight: bold;
+                      "
+                    >
+                      Go to Dashboard
+                    </a>
+
+                  </td>
+
+                </tr>
+              </table>
+
+              <!-- Accent -->
+              <table
+                width="100%"
+                cellpadding="0"
+                cellspacing="0"
+                border="0"
+              >
+                <tr>
+
+                  <td
+                    style="
+                      background-color: #ecfeff;
+                      border: 1px solid #a5f3fc;
+                      border-left: 4px solid #06b6d4;
+                      border-radius: 8px;
+                      padding: 16px;
+                    "
+                  >
+
+                    <p
+                      style="
+                        margin: 0;
+                        color: #155e75;
+                        font-size: 14px;
+                        line-height: 1.6;
+                      "
+                    >
+                      <strong>Tip:</strong>
+                      Start by creating your first project and
+                      inviting your team members.
+                    </p>
+
+                  </td>
+
+                </tr>
+              </table>
+
+              <p
+                style="
+                  margin: 25px 0 0;
+                  color: #64748b;
+                  font-size: 14px;
+                  line-height: 1.6;
+                "
+              >
+                If you have any questions or need assistance,
+                please contact our support team. We're here to help.
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+
+            <td
+              style="
+                background-color: #f8fafc;
+                padding: 24px 30px;
+                text-align: center;
+                border-top: 1px solid #e2e8f0;
+              "
+            >
+
+              <p
+                style="
+                  margin: 0;
+                  color: #4f46e5;
+                  font-size: 16px;
+                  font-weight: 700;
+                "
+              >
+                TaskFlow
+              </p>
+
+              <p
+                style="
+                  margin: 7px 0 0;
+                  color: #64748b;
+                  font-size: 12px;
+                "
+              >
+                Plan • Collaborate • Track • Deliver
+              </p>
+
+              <p
+                style="
+                  margin: 12px 0 0;
+                  color: #94a3b8;
+                  font-size: 12px;
+                  line-height: 1.5;
+                "
+              >
+                This is an automated email.
+                Please do not reply to this message.
+              </p>
+
+              <p
+                style="
+                  margin: 7px 0 0;
+                  color: #94a3b8;
+                  font-size: 12px;
+                "
+              >
+                &copy; 2026 Project Management SaaS. All rights reserved.
+              </p>
+
+            </td>
+
+          </tr>
+
+        </table>
+
+      </td>
+
+    </tr>
+  </table>
+
+</body>
+
+</html>

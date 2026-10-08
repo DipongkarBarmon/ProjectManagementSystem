@@ -1,0 +1,32 @@
+model Project {
+  id             String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+
+  name        String
+  slug        String
+  description String?
+
+  status ProjectStatus @default(PLANNING)
+
+  startDate DateTime?
+  endDate   DateTime?
+
+  createdById String @db.Uuid
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  createdBy    User         @relation(fields: [createdById], references: [id])
+
+  projectMembers ProjectMember[]
+  sprints        Sprint[]
+  tasks          Task[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+  @@index([status])
+  @@index([createdById])
+  @@map("projects")
+}

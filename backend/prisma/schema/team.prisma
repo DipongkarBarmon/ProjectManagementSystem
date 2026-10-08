@@ -1,0 +1,25 @@
+model Team {
+  id             String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+
+  name        String
+  description String?
+
+  createdById String  @db.Uuid
+  teamLeadId  String? @db.Uuid
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  createdBy    User         @relation("TeamCreator", fields: [createdById], references: [id])
+  teamLead     User?        @relation("TeamLead", fields: [teamLeadId], references: [id])
+
+  members TeamMember[]
+  
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([createdById])
+  @@index([teamLeadId])
+  @@map("teams")
+}

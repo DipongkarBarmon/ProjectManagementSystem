@@ -1,0 +1,296 @@
+```ejs
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Your Email - Project Management SaaS</title>
+</head>
+
+<body style="
+  margin: 0;
+  padding: 0;
+  background-color: #f8fafc;
+  font-family: Arial, Helvetica, sans-serif;
+">
+
+  <table
+    width="100%"
+    cellpadding="0"
+    cellspacing="0"
+    border="0"
+    style="background-color: #f8fafc; padding: 40px 15px;"
+  >
+    <tr>
+      <td align="center">
+
+        <table
+          width="100%"
+          cellpadding="0"
+          cellspacing="0"
+          border="0"
+          style="
+            max-width: 600px;
+            background-color: #ffffff;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+          "
+        >
+
+          <!-- Header -->
+          <tr>
+            <td style="
+              background-color: #4f46e5;
+              padding: 32px 30px;
+              text-align: center;
+            ">
+
+              <!-- Logo -->
+              <div style="
+                width: 58px;
+                height: 58px;
+                margin: 0 auto 16px;
+                background-color: #ffffff;
+                border-radius: 14px;
+                color: #4f46e5;
+                font-size: 28px;
+                font-weight: bold;
+                line-height: 58px;
+              ">
+                ✓
+              </div>
+
+              <div style="
+                color: #ffffff;
+                font-size: 25px;
+                font-weight: 700;
+                margin-bottom: 8px;
+              ">
+                TaskFlow
+              </div>
+
+              <p style="
+                margin: 0;
+                color: #e0e7ff;
+                font-size: 14px;
+              ">
+                Plan. Collaborate. Deliver.
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 38px 32px;">
+
+              <h2 style="
+                margin: 0 0 15px;
+                color: #0f172a;
+                font-size: 22px;
+              ">
+                Welcome, <%= name %>!
+              </h2>
+
+              <p style="
+                margin: 0 0 22px;
+                color: #64748b;
+                font-size: 15px;
+                line-height: 1.7;
+              ">
+                Thanks for creating your TaskFlow account.
+                To complete your registration and start managing
+                your projects, teams, and tasks, please verify your
+                email address using the One-Time Password below.
+              </p>
+
+              <!-- OTP -->
+              <table
+                width="100%"
+                cellpadding="0"
+                cellspacing="0"
+                border="0"
+              >
+                <tr>
+                  <td align="center" style="padding: 8px 0 25px;">
+
+                    <div style="
+                      display: inline-block;
+                      background-color: #eef2ff;
+                      border: 2px dashed #4f46e5;
+                      border-radius: 12px;
+                      padding: 18px 36px;
+                    ">
+
+                      <span style="
+                        font-size: 32px;
+                        font-weight: 700;
+                        letter-spacing: 8px;
+                        color: #4f46e5;
+                      ">
+                        <%= otp %>
+                      </span>
+
+                    </div>
+
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Expiration -->
+              <p style="
+                margin: 0 0 26px;
+                text-align: center;
+                color: #dc2626;
+                font-size: 14px;
+                font-weight: 600;
+              ">
+                This OTP will expire in <%= expiresIn %> minutes.
+              </p>
+
+              <!-- Security Notice -->
+              <table
+                width="100%"
+                cellpadding="0"
+                cellspacing="0"
+                border="0"
+              >
+                <tr>
+                  <td style="
+                    background-color: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    border-left: 4px solid #06b6d4;
+                    border-radius: 8px;
+                    padding: 18px;
+                  ">
+
+                    <p style="
+                      margin: 0;
+                      color: #475569;
+                      font-size: 14px;
+                      line-height: 1.6;
+                    ">
+
+                      <strong style="color: #0f172a;">
+                        Security Notice
+                      </strong>
+
+                      <br>
+
+                      Never share this OTP with anyone.
+                      Our team will never ask you for your OTP
+                      or password.
+
+                    </p>
+
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Ignore Notice -->
+              <p style="
+                margin: 25px 0 0;
+                color: #64748b;
+                font-size: 14px;
+                line-height: 1.6;
+              ">
+                If you did not create a Project Management SaaS account,
+                you can safely ignore this email.
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="
+              background-color: #f8fafc;
+              padding: 24px 30px;
+              text-align: center;
+              border-top: 1px solid #e2e8f0;
+            ">
+
+              <p style="
+                margin: 0;
+                color: #4f46e5;
+                font-size: 16px;
+                font-weight: 700;
+              ">
+                TaskFlow
+              </p>
+
+              <p style="
+                margin: 7px 0 0;
+                color: #64748b;
+                font-size: 12px;
+              ">
+                Plan • Collaborate • Track • Deliver
+              </p>
+
+              <p style="
+                margin: 12px 0 0;
+                color: #94a3b8;
+                font-size: 12px;
+              ">
+                This is an automated email. Please do not reply to this message.
+              </p>
+
+              <p style="
+                margin: 7px 0 0;
+                color: #94a3b8;
+                font-size: 12px;
+              ">
+                &copy; 2026 Project Management SaaS. All rights reserved.
+              </p>
+
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+
+</html>
+```
+
+**File location:**
+
+```text
+src/app/templates/register-otp-email.ejs
+```
+
+আর তোমার `auth.service.ts`-এ:
+
+```ts
+const templatePath = path.join(
+  process.cwd(),
+  "src/app/templates/register-otp-email.ejs"
+);
+
+const templateData = {
+  name,
+  otp,
+  expiresIn: expiration / 60,
+};
+
+const html = await ejs.renderFile(
+  templatePath,
+  templateData
+);
+```
+
+এখানে EJS-এর তিনটি variable:
+
+```ejs
+<%= name %>
+<%= otp %>
+<%= expiresIn %>
+```
+
+ 
