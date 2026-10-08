@@ -74,6 +74,14 @@ export const seedPlans = async () => {
 }
 
 export const seedSupperAdmin = async () => {
+    const name = config.super_admin_name;
+    const email = config.super_admin_email;
+    const password = config.super_admin_password;
+
+    if(!name || !email || !password) {
+      console.log("Super Admin name, email and password must be provided in the environment variables. Skipping seeding."); 
+      return;
+    }
     
   try{
       const isExistSuperAdmin = await prisma.user.findFirst({
@@ -86,14 +94,6 @@ export const seedSupperAdmin = async () => {
       console.log("Super Admin already exists. Skipping seeding.");
       return;
 
-    }
-
-    const name = config.super_admin_name;
-    const email = config.super_admin_email;
-    const password = config.super_admin_password;
-
-    if(!name || !email || !password) {
-      throw new Error("Super Admin name, email and password must be provided in the environment variables"); 
     }
   
     const hashedPassword = await bcrypt.hash(password , Number(config.bcrypt_salt_rounds));
@@ -118,11 +118,6 @@ export const seedSupperAdmin = async () => {
 
   } catch (error) {
     console.log("Error while seeding super admin", error);
-    await prisma.user.delete({
-        where : {
-          email : config.super_admin_email,
-        }
-    })  
   }
 
 }

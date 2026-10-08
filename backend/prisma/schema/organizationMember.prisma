@@ -15,4 +15,6 @@ model OrganizationMember {
   @@index([organizationId])
   @@index([userId])
   @@index([organizationId, organizationRole])
+
+  @@map("organization_members")
 }

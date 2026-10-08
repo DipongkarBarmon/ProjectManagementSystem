@@ -4,10 +4,12 @@ enum PlatformRole {
 }
 
 enum OrganizationRole {
+  OWNER
   ORG_ADMIN
   PROJECT_MANAGER
   TEAM_LEAD
   MEMBER
+  GUEST
 }
 
 enum UserStatus {

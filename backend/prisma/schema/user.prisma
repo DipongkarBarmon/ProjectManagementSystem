@@ -34,4 +34,6 @@ model User {
   verifiedPayments Payment[]
 
   @@index([email])
+
+  @@map("users")
 }

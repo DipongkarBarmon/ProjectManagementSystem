@@ -24,10 +24,16 @@ export type TaskSummary = {
 };
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+  const headers: Record<string, string> = { ...(options.headers as Record<string, string>) };
+  
+  if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
+
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...options.headers },
+    headers,
   });
 
   const body = (await response.json()) as ApiResponse<T>;
@@ -40,7 +46,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<ApiR
 export const api = {
   auth: {
     login: (payload: Record<string, string>) => request("/auth/login", { method: "POST", body: JSON.stringify(payload) }),
-    register: (payload: Record<string, string>) => request("/auth/register", { method: "POST", body: JSON.stringify(payload) }),
+    register: (payload: FormData | Record<string, string>) => request("/auth/register", { method: "POST", body: payload instanceof FormData ? payload : JSON.stringify(payload) }),
     verifyEmail: (payload: { email: string; otp: string }) => request("/auth/verify-email", { method: "POST", body: JSON.stringify(payload) }),
     google: (idToken: string) => request("/auth/google", { method: "POST", body: JSON.stringify({ idToken }) }),
     forgotPassword: (email: string) => request("/auth/forget-password", { method: "POST", body: JSON.stringify({ email }) }),

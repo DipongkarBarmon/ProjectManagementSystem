@@ -41,15 +41,16 @@ const registerIntoDB = async(payload : IRegisterPayload,fileBuffer : Buffer) => 
 
     
     let cloudinaryResult;
+    if (fileBuffer) {
+        try {
+            cloudinaryResult = await uploadToCloudinary(fileBuffer, 'user-avatars');
+        } catch (uploadError) {
+            throw new Error("Failed to upload avatar image to Cloudinary.");
+        }
 
-    try {
-        cloudinaryResult = await uploadToCloudinary(fileBuffer, 'user-avatars');
-    } catch (uploadError) {
-        throw new Error("Failed to upload avatar image to Cloudinary.");
-    }
-
-   if (!cloudinaryResult || !cloudinaryResult.secure_url) {
-        throw new Error("Avatar upload completed but secure URL was not generated.");
+       if (!cloudinaryResult || !cloudinaryResult.secure_url) {
+            throw new Error("Avatar upload completed but secure URL was not generated.");
+        }
     }
 
 
@@ -68,9 +69,9 @@ const registerIntoDB = async(payload : IRegisterPayload,fileBuffer : Buffer) => 
     const registerPayload = {
        name,
        email,
-       password :hashedPasword,
-       avatar : cloudinaryResult.secure_url,
-       avatarPublicId : cloudinaryResult.public_id
+       password: hashedPasword,
+       avatar: cloudinaryResult?.secure_url || null,
+       avatarPublicId: cloudinaryResult?.public_id || null
     }
 
     
@@ -179,7 +180,7 @@ const verifyEmail = async(payload :IVerifyEmailPayload)=>{
 
     const jwtPayload = {
        userId : createUser.id,
-       neme :  createUser.name,
+       name :  createUser.name,
        email : createUser.email,
        role : createUser.platformRole
     }
@@ -192,14 +193,20 @@ const verifyEmail = async(payload :IVerifyEmailPayload)=>{
 
     const refreshToken = jwtUtiles.createToken(
       jwtPayload,
-      config.jwt_access_secret,
-      config.jwt_access_expiration as SignOptions
+      config.jwt_refresh_secret,
+      config.jwt_refresh_expiration as SignOptions
     )
 
     return {
       accessToken,
       refreshToken,
-         createUser,
+      user: {
+         id: createUser.id,
+         name: createUser.name,
+         email: createUser.email,
+         platformRole: createUser.platformRole,
+         status: createUser.status
+      }
    }
    
      
@@ -244,7 +251,7 @@ const userloginFromBD = async(payload : ILoginPayload) => {
 
     const jwtPayload = {
        userId : user.id,
-       neme :  user.name,
+       name :  user.name,
        email : user.email,
        role : user.platformRole
     }
@@ -257,13 +264,20 @@ const userloginFromBD = async(payload : ILoginPayload) => {
 
     const refreshToken = jwtUtiles.createToken(
       jwtPayload,
-      config.jwt_access_secret,
-      config.jwt_access_expiration as SignOptions
+      config.jwt_refresh_secret,
+      config.jwt_refresh_expiration as SignOptions
     )
 
     return {
       accessToken,
-      refreshToken,    
+      refreshToken,
+      user: {
+         id: user.id,
+         name: user.name,
+         email: user.email,
+         platformRole: user.platformRole,
+         status: user.status
+      }
    }
 }
 
@@ -396,7 +410,7 @@ const googleLogin = async(payload : IGoogleLoginPayload)=>{
 
     const jwtPayload = {
        userId : newuser.id,
-       neme :  newuser.name,
+       name :  newuser.name,
        email : newuser.email,
        role : newuser.platformRole
     }
@@ -409,15 +423,20 @@ const googleLogin = async(payload : IGoogleLoginPayload)=>{
 
     const refreshToken = jwtUtiles.createToken(
       jwtPayload,
-      config.jwt_access_secret,
-      config.jwt_access_expiration as SignOptions
+      config.jwt_refresh_secret,
+      config.jwt_refresh_expiration as SignOptions
     )
 
     return {
       accessToken,
       refreshToken,
-      createUser: newuser,
-      authAccount
+      user: {
+         id: newuser.id,
+         name: newuser.name,
+         email: newuser.email,
+         platformRole: newuser.platformRole,
+         status: newuser.status
+      }
    }
    
 
@@ -472,6 +491,13 @@ const refreshToken = async (token: string) => {
 	return {
 		accessToken,
 		refreshToken,
+      user: {
+         id: user.id,
+         name: user.name,
+         email: user.email,
+         platformRole: user.platformRole,
+         status: user.status
+      }
 	};
 };
 
@@ -485,16 +511,9 @@ const forgetPassword = async(payload : IForgetPasswordPayload)=>{
       }
    })
 
-   if(!user ){
-      throw new Error("User is not found!")
-   }
-
-   if(user.status === UserStatus.BLOCKED){
-      throw new Error("User is Blocked!")
-   }
-
-   if(user.status === UserStatus.DELETED || user.isDeleted === true){
-       throw new Error("User is Deleted!")
+   if(!user || user.status === UserStatus.BLOCKED || user.status === UserStatus.DELETED || user.isDeleted === true){
+      // Prevent user enumeration by acting like it sent
+      return;
    }
 
    const otp = crypto.randomInt(100000,1000000).toString()

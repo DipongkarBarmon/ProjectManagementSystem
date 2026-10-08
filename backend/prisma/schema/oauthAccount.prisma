@@ -12,5 +12,5 @@ model OAuthAccount {
 
   @@unique([provider, providerAccountId])
   @@index([userId])
-  @@map("oauthaccounts")
+  @@map("oauth_accounts")
 }

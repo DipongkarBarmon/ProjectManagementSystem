@@ -24,4 +24,6 @@ model Organization {
   subscription  Subscription?
   invoices      Invoice[]
   payments      Payment[]
+
+  @@map("organizations")
 }

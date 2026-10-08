@@ -1,2 +1,0 @@
--- CreateEnum
-CREATE TYPE "OrganizationRole" AS ENUM ('ORG_ADMIN', 'PROJECT_MANAGER', 'TEAM_LEAD', 'MEMBER');

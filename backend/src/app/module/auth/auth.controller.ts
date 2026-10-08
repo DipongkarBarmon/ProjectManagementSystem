@@ -3,20 +3,17 @@ import { catchAsync } from "../../utils/catchAsync";
 import { sendResponse } from "../../utils/sendResponse";
 import httpStatus from "http-status";
 import { AuthService } from "./auth.service";
-
+import config from "../../config";
 
 const register = catchAsync(async(req : Request,res : Response , next : NextFunction)=> {
     const body = req.body
     const payload = req.file
     
-    if(!payload){
-       throw new Error("No File Provided!")
-   }
     await AuthService.registerIntoDB(body, payload?.buffer)
     sendResponse(res,{
        success: true,
        statusCode : httpStatus.CREATED,
-       message : "Email verification otp send successfully!",
+       message : "Email verification otp sent successfully!",
        data : null
     })
 })
@@ -30,13 +27,13 @@ const verifyEmail =catchAsync(async(req : Request,res : Response , next : NextFu
     res.cookie("accessToken", accessToken, {
        httpOnly:true,
        sameSite :'lax',
-       secure : false,
+       secure: config.node_env === "production",
        maxAge : 1000*60*60*24 // 1 day
        
     } )
     
     res.cookie('refreshToken',refreshToken,{
-       secure : false,
+       secure: config.node_env === "production",
        httpOnly : true,
        sameSite :'lax',
        maxAge : 1000*60*60*24*7 //7d
@@ -44,9 +41,9 @@ const verifyEmail =catchAsync(async(req : Request,res : Response , next : NextFu
 
     sendResponse(res,{
        success: true,
-       statusCode : httpStatus.CREATED,
-       message : "Email verify successfully!",
-       data : result
+       statusCode : httpStatus.OK,
+       message : "Email verified successfully!",
+       data : { user: result.user }
     })
 })
 
@@ -60,13 +57,13 @@ const userLogin = catchAsync(async(req : Request,res : Response , next : NextFun
     res.cookie("accessToken", accessToken, {
        httpOnly:true,
        sameSite :'lax',
-       secure : false,
+       secure: config.node_env === "production",
        maxAge : 1000*60*60*24 // 1 day
        
     } )
     
     res.cookie('refreshToken',refreshToken,{
-       secure : false,
+       secure: config.node_env === "production",
        httpOnly : true,
        sameSite :'lax',
        maxAge : 1000*60*60*24*7 //7d
@@ -74,9 +71,9 @@ const userLogin = catchAsync(async(req : Request,res : Response , next : NextFun
 
     sendResponse(res,{
        success: true,
-       statusCode : httpStatus.CREATED,
-       message : "User login successfully!",
-       data :result
+       statusCode : httpStatus.OK,
+       message : "User logged in successfully!",
+       data : { user: result.user }
     })
 })
 
@@ -90,13 +87,13 @@ const googleLogin =catchAsync(async(req : Request,res : Response , next : NextFu
     res.cookie("accessToken", accessToken, {
        httpOnly:true,
        sameSite :'lax',
-       secure : false,
+       secure: config.node_env === "production",
        maxAge : 1000*60*60*24 // 1 day
        
     } )
     
     res.cookie('refreshToken',refreshToken,{
-       secure : false,
+       secure: config.node_env === "production",
        httpOnly : true,
        sameSite :'lax',
        maxAge : 1000*60*60*24*7 //7d
@@ -104,9 +101,9 @@ const googleLogin =catchAsync(async(req : Request,res : Response , next : NextFu
 
     sendResponse(res,{
        success: true,
-       statusCode : httpStatus.CREATED,
-       message : "User login successfully!",
-       data :result
+       statusCode : httpStatus.OK,
+       message : "User logged in successfully!",
+       data : { user: result.user }
     })
 })
 
@@ -120,13 +117,13 @@ const refreshToken = catchAsync(async (req: Request, res: Response) => {
 
 	res.cookie("accessToken", accessToken, {
 		httpOnly: true,
-		secure: false,
+		secure: config.node_env === "production",
 		sameSite: "none",
 		maxAge: 1000 * 60 * 60 * 24, // 24 hour or 1 day
 	});
 	res.cookie("refreshToken", newRefreshToken, {
 		httpOnly: true,
-		secure: false,
+		secure: config.node_env === "production",
 		sameSite: "none",
 		maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
 	});
@@ -136,8 +133,7 @@ const refreshToken = catchAsync(async (req: Request, res: Response) => {
 		success: true,
 		message: "New tokens generated successfully",
 		data: {
-			accessToken,
-			refreshToken: newRefreshToken,
+			user: result.user
 		},
 	});
 });
@@ -168,6 +164,37 @@ const resetPassword =catchAsync(async(req : Request,res : Response , next : Next
      
 })
 
+const logout = catchAsync(async (req: Request, res: Response) => {
+	res.clearCookie("accessToken", {
+		httpOnly: true,
+		secure: config.node_env === "production",
+		sameSite: "lax",
+	});
+	res.clearCookie("refreshToken", {
+		httpOnly: true,
+		secure: config.node_env === "production",
+		sameSite: "lax",
+	});
+
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "Logged out successfully",
+		data: null,
+	});
+});
+
+const getMe = catchAsync(async (req: Request, res: Response) => {
+	const user = req.user; // populated by checkAuth middleware
+	
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "User fetched successfully",
+		data: { user },
+	});
+});
+
 export const AuthController = {
    register,
    verifyEmail,
@@ -175,6 +202,7 @@ export const AuthController = {
    googleLogin,
    refreshToken,
    forgetPassword,
-   resetPassword
-   
+   resetPassword,
+   logout,
+   getMe
 }

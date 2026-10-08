@@ -24,8 +24,11 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   function completeAuth(data: unknown) {
     localStorage.setItem("taskflow_session", JSON.stringify(data ?? { authenticated: true }));
     let role = "USER";
-    if (typeof data === "object" && data !== null && "accessToken" in data && typeof data.accessToken === "string") {
-      try { role = jwtDecode<{ role?: string }>(data.accessToken).role ?? "USER"; } catch { role = "USER"; }
+    if (typeof data === "object" && data !== null && "user" in data) {
+      const userData = (data as any).user;
+      if (userData && typeof userData.platformRole === "string") {
+        role = userData.platformRole;
+      }
     }
     router.push(role === "SUPER_ADMIN" ? "/admin" : "/dashboard");
   }
@@ -34,11 +37,16 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     event.preventDefault();
     setLoading(true);
     setError("");
-    const payload = Object.fromEntries(new FormData(event.currentTarget).entries()) as Record<string, string>;
+    const formData = new FormData(event.currentTarget);
+    const payload = Object.fromEntries(formData.entries()) as Record<string, string>;
     try {
-      const result = isLogin ? await api.auth.login(payload) : await api.auth.register(payload);
-      if (isLogin) completeAuth(result.data);
-      else router.push(`/verify-email?email=${encodeURIComponent(payload.email)}`);
+      if (isLogin) {
+        const result = await api.auth.login(payload);
+        completeAuth(result.data);
+      } else {
+        const result = await api.auth.register(formData);
+        router.push(`/verify-email?email=${encodeURIComponent(payload.email)}`);
+      }
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Something went wrong. Please try again.");
     } finally {
@@ -70,6 +78,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
           <form onSubmit={handleSubmit} className="mt-8 space-y-4">
             <label className="block text-sm font-medium">{isLogin ? "Email address" : "Name"}<input required name={isLogin ? "email" : "name"} type={isLogin ? "email" : "text"} autoComplete={isLogin ? "email" : "name"} className="mt-2 h-11 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30" placeholder={isLogin ? "you@company.com" : "Your name"} /></label>
             {!isLogin && <label className="block text-sm font-medium">Email address<input required name="email" type="email" autoComplete="email" className="mt-2 h-11 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30" placeholder="you@company.com" /></label>}
+            {!isLogin && <label className="block text-sm font-medium">Avatar<input name="avatar" type="file" accept="image/*" className="mt-2 w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 bg-background" /></label>}
             <label className="block text-sm font-medium">Password<div className="relative mt-2"><input required name="password" type={showPassword ? "text" : "password"} autoComplete={isLogin ? "current-password" : "new-password"} className="h-11 w-full rounded-lg border bg-background px-3 pr-10 text-sm outline-none focus:ring-2 focus:ring-primary/30" placeholder="Use 8+ characters" /><button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div></label>
             {isLogin && <div className="flex justify-end"><Link href="/forgot-password" className="text-xs font-medium text-primary hover:underline">Forgot password?</Link></div>}
             {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-700 dark:bg-red-400/10 dark:text-red-300">{error}</p>}

@@ -11,7 +11,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "prisma generate && tsup",
     "start": "node dist/src/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run",
     "postinstall": "prisma skills sync || exit 0",
     "format:check": "npx @biomejs/biome format ./src",
     "format:fix": "npx @biomejs/biome format --write ./src",
@@ -19,7 +19,7 @@
     "lint:fix": "npx @biomejs/biome lint ./src"
   },
   "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx src/app/utils/seed.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.13",
@@ -33,9 +33,12 @@
     "@types/node": "^22.20.4",
     "@types/pg": "^8.23.1",
     "@types/streamifier": "^0.1.2",
+    "@types/supertest": "^7.2.1",
     "prisma": "^7.10.0",
+    "supertest": "^7.3.1",
     "tsx": "^4.23.13",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",

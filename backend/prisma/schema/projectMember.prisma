@@ -9,4 +9,6 @@ model ProjectMember {
 
   @@id([projectId, userId])
   @@index([userId])
+
+  @@map("project_members")
 }
