@@ -50,7 +50,7 @@ const updateOrganizationInfo = catchAsync(async(req : Request,res : Response , n
 
 const getOrganizationById = catchAsync(async(req : Request,res : Response , next : NextFunction)=> {
     const organizationId = req.params.organizationId
-    const result =await OrganizationService.getOrganizationById(organizationId as string)
+    const result =await OrganizationService.getOrganizationById(organizationId as string, req.user?.userId as string)
     sendResponse(res,{
        success: true,
        statusCode : httpStatus.OK,
@@ -60,9 +60,8 @@ const getOrganizationById = catchAsync(async(req : Request,res : Response , next
 }) 
 
 const getAllOrganizations = catchAsync(async(req : Request,res : Response , next : NextFunction)=> {
-    
     const query = req.query
-    const result =await OrganizationService.getAllOrganizations(query)
+    const result =await OrganizationService.getAllOrganizations(query, req.user?.userId as string)
     sendResponse(res,{
        success: true,
        statusCode : httpStatus.OK,

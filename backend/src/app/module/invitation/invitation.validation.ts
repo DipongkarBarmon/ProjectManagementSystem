@@ -8,7 +8,7 @@ const sentInvitationZodSchema = z.object({
 })
 
 const GetAllInvitationsZodSchema = z.object({
-   body : z.object({
+   query : z.object({
       searchTerm : z.string().optional(),
       page : z.string().optional(),
       limit : z.string().optional(),

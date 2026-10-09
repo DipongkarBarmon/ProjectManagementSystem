@@ -33,9 +33,7 @@ const CreateOrganizationSchema = z.object({
       slug: z.string().min(3, { message: "Slug must be at least 3 characters long" }),
       description: z.string().optional(),
    }),
-   file : z.object({
-      logo : z.array(singleFileEngine(ALLOWED_MULTI_TYPES.image,10)).max(1,"Only 1 logo allowed").optional()
-   }).optional()
+   file : singleFileEngine(ALLOWED_MULTI_TYPES.image,10).optional()
 })
 
 const UpdateLogoZodSchema = z.object({
@@ -53,7 +51,7 @@ const UpdateOrganizationInfoZodSchema = z.object({
 })
 
 const GetAllOrganizationZodSchema = z.object({
-   body : z.object({
+   query : z.object({
       searchTerm : z.string().optional(),
       page : z.string().optional(),
       limit : z.string().optional(),

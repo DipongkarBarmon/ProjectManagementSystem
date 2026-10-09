@@ -21,6 +21,7 @@ router.get("/:organizationId/invitations/:invitationId",auth({ permissions: [Per
 
 router.patch("/:organizationId/invitations/:invitationId/cancel",auth({ permissions: [Permissions.MEMBER_REMOVE] }), InvitationController.cencelInvitation)
 
+router.delete("/:organizationId/invitations/:invitationId",auth({ permissions: [Permissions.MEMBER_REMOVE] }), InvitationController.deleteInvitation)
 
 
 export const InvitationRouter = router

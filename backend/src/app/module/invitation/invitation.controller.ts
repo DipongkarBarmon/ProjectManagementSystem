@@ -49,7 +49,7 @@ const acceptInvitation = catchAsync(async(req: Request, res: Response) => {
 const getAllInvitations = catchAsync(async(req: Request, res: Response) => {
 
    const query = req.query
-    const result = await InvitationService.getAllInvitations(query )
+    const result = await InvitationService.getAllInvitations(req.params.organizationId as string, query)
 
     sendResponse(res, {
         success: true,
@@ -61,7 +61,7 @@ const getAllInvitations = catchAsync(async(req: Request, res: Response) => {
 
 const getInvitationById = catchAsync(async(req: Request, res: Response) => {
     const invitationId = req.params.invitationId
-    const result = await InvitationService.getInvitationById(invitationId as string)
+    const result = await InvitationService.getInvitationById(invitationId as string, req.params.organizationId as string)
 
     sendResponse(res, {
         success: true,
@@ -73,7 +73,7 @@ const getInvitationById = catchAsync(async(req: Request, res: Response) => {
 
 const cencelInvitation = catchAsync(async(req: Request, res: Response) => {
     const invitationId = req.params.invitationId
-    const result = await InvitationService.cencelInvitation(invitationId as string)
+    const result = await InvitationService.cencelInvitation(invitationId as string, req.params.organizationId as string)
 
     sendResponse(res, {
         success: true,
@@ -86,7 +86,7 @@ const cencelInvitation = catchAsync(async(req: Request, res: Response) => {
 
 const deleteInvitation = catchAsync(async(req: Request, res: Response) => {
     const invitationId = req.params.invitationId
-    const result = await InvitationService.deleteInvitation(invitationId as string)
+    const result = await InvitationService.deleteInvitation(invitationId as string, req.params.organizationId as string)
 
     sendResponse(res, {
         success: true,

@@ -1674,8 +1674,6 @@ var validationRequest = (zodSchema) => {
       throw new Error(result.error.issues[0].message);
     }
     if (result.data.body) req.body = result.data.body;
-    if (result.data.query) req.query = result.data.query;
-    if (result.data.params) req.params = result.data.params;
     next();
   });
 };
@@ -2586,6 +2584,10 @@ var acceptInvitation = async (token, userId) => {
     });
     return membership;
   });
+  const organization = await prisma.organization.findUnique({
+    where: { id: invitation.organizationId, deletedAt: null },
+    select: { id: true, name: true, slug: true, logo: true }
+  });
   await ActivityService.createActivity({
     organizationId: invitation.organizationId,
     actorId: userId,
@@ -2594,9 +2596,9 @@ var acceptInvitation = async (token, userId) => {
     entityId: invitation.organizationId,
     description: `Accepted invitation and joined organization`
   });
-  return result;
+  return { membership: result, organization };
 };
-var getAllInvitations = async (query) => {
+var getAllInvitations = async (organizationId, query) => {
   const limit = query.limit ? Number(query.limit) : 10;
   const page = query.page ? Number(query.page) : 1;
   const skip = (page - 1) * limit;
@@ -2650,7 +2652,7 @@ var getAllInvitations = async (query) => {
   }
   const invitations = await prisma.invitation.findMany({
     where: {
-      AND: addConditions
+      AND: [{ organizationId }, ...addConditions]
     },
     skip,
     take: limit,
@@ -2660,14 +2662,12 @@ var getAllInvitations = async (query) => {
   });
   return invitations;
 };
-var getInvitationById = async (invitationId) => {
+var getInvitationById = async (invitationId, organizationId) => {
   if (!invitationId) {
     throw new Error("Invitation ID is required");
   }
-  const invitation = await prisma.invitation.findUnique({
-    where: {
-      id: invitationId
-    },
+  const invitation = await prisma.invitation.findFirst({
+    where: { id: invitationId, organizationId },
     include: {
       organization: {
         select: {
@@ -2689,14 +2689,12 @@ var getInvitationById = async (invitationId) => {
   }
   return invitation;
 };
-var cencelInvitation = async (invitationId) => {
+var cencelInvitation = async (invitationId, organizationId) => {
   if (!invitationId) {
     throw new Error("Invitation ID is required");
   }
-  const invitation = await prisma.invitation.findUnique({
-    where: {
-      id: invitationId
-    }
+  const invitation = await prisma.invitation.findFirst({
+    where: { id: invitationId, organizationId }
   });
   if (!invitation) {
     throw new Error("Invitation not found");
@@ -2705,24 +2703,22 @@ var cencelInvitation = async (invitationId) => {
     throw new Error(`Invitation is ${invitation.status.toLowerCase()}`);
   }
   const updatedInvitation = await prisma.invitation.update({
-    where: {
-      id: invitationId
-    },
+    where: { id: invitationId },
     data: {
       status: InvitationStatus.CANCELLED
     }
   });
   return updatedInvitation;
 };
-var deleteInvitation = async (invitationId) => {
+var deleteInvitation = async (invitationId, organizationId) => {
   if (!invitationId) {
     throw new Error("Invitation ID is required");
   }
-  const invitation = await prisma.invitation.delete({
-    where: {
-      id: invitationId
-    }
+  const existingInvitation = await prisma.invitation.findFirst({
+    where: { id: invitationId, organizationId }
   });
+  if (!existingInvitation) throw new Error("Invitation not found");
+  const invitation = await prisma.invitation.delete({ where: { id: invitationId } });
   return invitation;
 };
 var InvitationService = {
@@ -2771,7 +2767,7 @@ var acceptInvitation2 = catchAsync(async (req, res) => {
 });
 var getAllInvitations2 = catchAsync(async (req, res) => {
   const query = req.query;
-  const result = await InvitationService.getAllInvitations(query);
+  const result = await InvitationService.getAllInvitations(req.params.organizationId, query);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus5.OK,
@@ -2781,7 +2777,7 @@ var getAllInvitations2 = catchAsync(async (req, res) => {
 });
 var getInvitationById2 = catchAsync(async (req, res) => {
   const invitationId = req.params.invitationId;
-  const result = await InvitationService.getInvitationById(invitationId);
+  const result = await InvitationService.getInvitationById(invitationId, req.params.organizationId);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus5.OK,
@@ -2791,7 +2787,7 @@ var getInvitationById2 = catchAsync(async (req, res) => {
 });
 var cencelInvitation2 = catchAsync(async (req, res) => {
   const invitationId = req.params.invitationId;
-  const result = await InvitationService.cencelInvitation(invitationId);
+  const result = await InvitationService.cencelInvitation(invitationId, req.params.organizationId);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus5.OK,
@@ -2801,7 +2797,7 @@ var cencelInvitation2 = catchAsync(async (req, res) => {
 });
 var deleteInvitation2 = catchAsync(async (req, res) => {
   const invitationId = req.params.invitationId;
-  const result = await InvitationService.deleteInvitation(invitationId);
+  const result = await InvitationService.deleteInvitation(invitationId, req.params.organizationId);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus5.OK,
@@ -2828,7 +2824,7 @@ var sentInvitationZodSchema = z2.object({
   })
 });
 var GetAllInvitationsZodSchema = z2.object({
-  body: z2.object({
+  query: z2.object({
     searchTerm: z2.string().optional(),
     page: z2.string().optional(),
     limit: z2.string().optional(),
@@ -2854,6 +2850,7 @@ router3.post("/:token/accept", auth({ platformRoles: [PlatformRole.USER] }), Inv
 router3.get("/:organizationId/invitations", auth({ permissions: [Permissions.MEMBER_READ] }), validationRequest(InvitationValidation.GetAllInvitationsZodSchema), InvitationController.getAllInvitations);
 router3.get("/:organizationId/invitations/:invitationId", auth({ permissions: [Permissions.MEMBER_READ] }), InvitationController.getInvitationById);
 router3.patch("/:organizationId/invitations/:invitationId/cancel", auth({ permissions: [Permissions.MEMBER_REMOVE] }), InvitationController.cencelInvitation);
+router3.delete("/:organizationId/invitations/:invitationId", auth({ permissions: [Permissions.MEMBER_REMOVE] }), InvitationController.deleteInvitation);
 var InvitationRouter = router3;
 
 // src/app/module/organization/organization.route.ts
@@ -3085,10 +3082,17 @@ var updateOrganizationInfo = async (payload, userId, organizationId) => {
   });
   return { organization };
 };
-var getOrganizationById = async (organizationId) => {
+var getOrganizationById = async (organizationId, userId) => {
+  if (userId) {
+    const membership = await prisma.organizationMember.findUnique({
+      where: { organizationId_userId: { organizationId, userId } }
+    });
+    if (!membership) throw new Error("Organization not found");
+  }
   const organization = await prisma.organization.findUnique({
     where: {
-      id: organizationId
+      id: organizationId,
+      deletedAt: null
     },
     include: {
       members: true,
@@ -3104,7 +3108,7 @@ var getOrganizationById = async (organizationId) => {
     data: organization
   };
 };
-var getAllOrganizations = async (query) => {
+var getAllOrganizations = async (query, userId) => {
   const limit = query.limit ? Number(query.limit) : 10;
   const page = query.page ? Number(query.page) : 1;
   const skip = (page - 1) * limit;
@@ -3150,10 +3154,15 @@ var getAllOrganizations = async (query) => {
       description: query.description
     });
   }
+  const where = {
+    AND: [
+      { deletedAt: null },
+      ...addConditions,
+      ...userId ? [{ members: { some: { userId } } }] : []
+    ]
+  };
   const organizations = await prisma.organization.findMany({
-    where: {
-      AND: addConditions
-    },
+    where,
     skip,
     take: limit,
     orderBy: {
@@ -3162,13 +3171,17 @@ var getAllOrganizations = async (query) => {
     include: {
       subscription: {
         include: { plan: true }
-      }
+      },
+      ...userId ? {
+        members: {
+          where: { userId },
+          select: { organizationRole: true }
+        }
+      } : {}
     }
   });
   const totalOrganizations = await prisma.organization.count({
-    where: {
-      AND: addConditions
-    }
+    where
   });
   const totalPages = Math.ceil(totalOrganizations / limit);
   return {
@@ -3183,6 +3196,7 @@ var getAllOrganizations = async (query) => {
 };
 var getAllOrganizationsForAdmin = async () => {
   return await prisma.organization.findMany({
+    where: { deletedAt: null },
     orderBy: { createdAt: "desc" },
     include: {
       subscription: { include: { plan: true } },
@@ -3193,7 +3207,8 @@ var getAllOrganizationsForAdmin = async () => {
 var deleteOrganization = async (organizationId, userId) => {
   const organization = await prisma.organization.findUnique({
     where: {
-      id: organizationId
+      id: organizationId,
+      deletedAt: null
     }
   });
   if (!organization) {
@@ -3344,7 +3359,7 @@ var updateOrganizationInfo2 = catchAsync(async (req, res, next) => {
 });
 var getOrganizationById2 = catchAsync(async (req, res, next) => {
   const organizationId = req.params.organizationId;
-  const result = await OrganizationService.getOrganizationById(organizationId);
+  const result = await OrganizationService.getOrganizationById(organizationId, req.user?.userId);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus6.OK,
@@ -3354,7 +3369,7 @@ var getOrganizationById2 = catchAsync(async (req, res, next) => {
 });
 var getAllOrganizations2 = catchAsync(async (req, res, next) => {
   const query = req.query;
-  const result = await OrganizationService.getAllOrganizations(query);
+  const result = await OrganizationService.getAllOrganizations(query, req.user?.userId);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus6.OK,
@@ -3464,9 +3479,7 @@ var CreateOrganizationSchema = z3.object({
     slug: z3.string().min(3, { message: "Slug must be at least 3 characters long" }),
     description: z3.string().optional()
   }),
-  file: z3.object({
-    logo: z3.array(singleFileEngine2(ALLOWED_MULTI_TYPES2.image, 10)).max(1, "Only 1 logo allowed").optional()
-  }).optional()
+  file: singleFileEngine2(ALLOWED_MULTI_TYPES2.image, 10).optional()
 });
 var UpdateLogoZodSchema = z3.object({
   file: z3.object({
@@ -3481,7 +3494,7 @@ var UpdateOrganizationInfoZodSchema = z3.object({
   })
 });
 var GetAllOrganizationZodSchema = z3.object({
-  body: z3.object({
+  query: z3.object({
     searchTerm: z3.string().optional(),
     page: z3.string().optional(),
     limit: z3.string().optional(),
@@ -3505,9 +3518,9 @@ router4.post("/create-organization", auth({ platformRoles: [PlatformRole.USER, P
 router4.post("/:organizationId/update-logo", auth({ permissions: [Permissions.ORG_UPDATE] }), upload.single("logo"), OrganizationController.updateLogo);
 router4.post("/:organizationId/update-OrganizationInfo", auth({ permissions: [Permissions.ORG_UPDATE] }), validationRequest(OrganizationValidation.UpdateOrganizationInfoZodSchema), OrganizationController.updateOrganizationInfo);
 router4.get("/admin/all", auth({ platformRoles: [PlatformRole.SUPER_ADMIN] }), OrganizationController.getAllOrganizationsForAdmin);
-router4.get("/get-all-organizations", validationRequest(OrganizationValidation.GetAllOrganizationZodSchema), OrganizationController.getAllOrganizations);
-router4.get("/:organizationId", OrganizationController.getOrganizationById);
-router4.delete("/:organizationId", auth({ permissions: [Permissions.ORG_UPDATE] }), OrganizationController.deleteOrganization);
+router4.get("/get-all-organizations", auth({ platformRoles: [PlatformRole.USER, PlatformRole.SUPER_ADMIN] }), validationRequest(OrganizationValidation.GetAllOrganizationZodSchema), OrganizationController.getAllOrganizations);
+router4.get("/:organizationId", auth({ permissions: [Permissions.ORG_READ] }), OrganizationController.getOrganizationById);
+router4.delete("/:organizationId", auth({ permissions: [Permissions.ORG_DELETE] }), OrganizationController.deleteOrganization);
 router4.get("/:organizationId/members", auth({ permissions: [Permissions.MEMBER_READ] }), OrganizationController.getMembers);
 router4.patch("/:organizationId/members/:memberId/role", auth({ permissions: [Permissions.MEMBER_UPDATE] }), OrganizationController.updateMemberRole);
 router4.delete("/:organizationId/members/:memberId", auth({ permissions: [Permissions.MEMBER_REMOVE] }), OrganizationController.removeMember);

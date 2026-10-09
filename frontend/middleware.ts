@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const publicRoutes = ['/login', '/register', '/verify-email', '/forgot-password', '/reset-password'];
+  const publicRoutes = ['/login', '/register', '/verify-email', '/forgot-password', '/reset-password', '/invitation/accept'];
   const isPublicRoute = pathname === '/' || publicRoutes.some((route) => pathname.startsWith(route));
 
   const hasAccessToken = request.cookies.has('accessToken');

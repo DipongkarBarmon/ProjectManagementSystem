@@ -18,11 +18,11 @@ router.post('/:organizationId/update-OrganizationInfo',auth({ permissions: [Perm
 
 router.get('/admin/all', auth({ platformRoles: [PlatformRole.SUPER_ADMIN] }), OrganizationController.getAllOrganizationsForAdmin);
 
-router.get('/get-all-organizations',validationRequest(OrganizationValidation.GetAllOrganizationZodSchema),OrganizationController.getAllOrganizations)
-router.get('/:organizationId',OrganizationController.getOrganizationById)
+router.get('/get-all-organizations',auth({ platformRoles: [PlatformRole.USER, PlatformRole.SUPER_ADMIN] }),validationRequest(OrganizationValidation.GetAllOrganizationZodSchema),OrganizationController.getAllOrganizations)
+router.get('/:organizationId',auth({ permissions: [Permissions.ORG_READ] }),OrganizationController.getOrganizationById)
 
 
-router.delete('/:organizationId',auth({ permissions: [Permissions.ORG_UPDATE] }),OrganizationController.deleteOrganization)
+router.delete('/:organizationId',auth({ permissions: [Permissions.ORG_DELETE] }),OrganizationController.deleteOrganization)
 
 router.get('/:organizationId/members', auth({ permissions: [Permissions.MEMBER_READ] }), OrganizationController.getMembers)
 router.patch('/:organizationId/members/:memberId/role', auth({ permissions: [Permissions.MEMBER_UPDATE] }), OrganizationController.updateMemberRole)

@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { Activity, Bell, ChevronDown, FolderKanban, LayoutDashboard, ListTodo, LogOut, Menu, Moon, Settings, ShieldCheck, Sun, Users, X, Zap } from "lucide-react";
+import { Activity, Bell, Building2, ChevronDown, FolderKanban, LayoutDashboard, ListTodo, LogOut, MailPlus, Menu, Moon, Settings, ShieldCheck, Sun, Users, X, Zap } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { ReactNode, useState, useEffect, useRef, useCallback } from "react";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { useWorkspaceStore } from "@/lib/store/workspace-store";
 import { api } from "@/lib/api-client";
 import { UpgradeModal } from "./upgrade-modal";
 
@@ -19,6 +20,8 @@ const navigation = [
 ];
 
 const management = [
+  { label: "Organizations", href: "/organizations", icon: Building2 },
+  { label: "Invitations", href: "/invitations", icon: MailPlus },
   { label: "Activity", href: "/activity", icon: Activity },
   { label: "Members", href: "/members", icon: Users },
   { label: "Settings", href: "/settings", icon: Settings },
@@ -76,6 +79,10 @@ export function WorkspaceShell({ children, title }: { children: ReactNode; title
   }, [resize, stopResizing]);
 
   const { user, logout: storeLogout } = useAuthStore();
+  const { activeOrganizationId, organizations, setActiveOrganizationId } = useWorkspaceStore();
+  const [isOrganizationOpen, setIsOrganizationOpen] = useState(false);
+  const activeOrganization = organizations.find((organization) => organization.id === activeOrganizationId);
+  const isOrganizationAdmin = activeOrganization?.myRole === "OWNER" || activeOrganization?.myRole === "ORG_ADMIN";
 
   async function logout() {
     try {
@@ -125,20 +132,69 @@ export function WorkspaceShell({ children, title }: { children: ReactNode; title
             <button onClick={() => setOpen(false)} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted lg:hidden" aria-label="Close navigation"><X size={17} /></button>
           </div>
           <div className="mt-8 rounded-lg border bg-muted/50 p-2">
-            <button className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-card">
-              <span className="flex size-7 items-center justify-center rounded-md bg-slate-900 text-[11px] font-bold text-white dark:bg-slate-100 dark:text-slate-900">MY</span>
+            <button
+              onClick={() => setIsOrganizationOpen((open) => !open)}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-card"
+              aria-expanded={isOrganizationOpen}
+              aria-label="Select organization"
+            >
+              <span className="flex size-7 items-center justify-center rounded-md bg-slate-900 text-[11px] font-bold text-white dark:bg-slate-100 dark:text-slate-900">
+                {(activeOrganization?.name || "MY").slice(0, 2).toUpperCase()}
+              </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-xs font-semibold">My Organizations</span>
-                <span className="block text-[11px] text-muted-foreground">View all</span>
+                <span className="block truncate text-xs font-semibold">{activeOrganization?.name || "Select organization"}</span>
+                <span className="block truncate text-[11px] text-muted-foreground">
+                  {activeOrganization?.myRole?.replace(/_/g, " ") || "No organization selected"}
+                </span>
               </span>
               <ChevronDown size={15} className="text-muted-foreground" />
             </button>
+            {isOrganizationOpen && (
+              <div className="mt-2 space-y-1 border-t pt-2">
+                {organizations.length === 0 ? (
+                  <Link
+                    href="/organizations"
+                    onClick={() => setIsOrganizationOpen(false)}
+                    className="block rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-card hover:text-foreground"
+                  >
+                    Create an organization
+                  </Link>
+                ) : (
+                  organizations.map((organization) => (
+                    <button
+                      key={organization.id}
+                      onClick={() => {
+                        setActiveOrganizationId(organization.id);
+                        setIsOrganizationOpen(false);
+                      }}
+                      className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs hover:bg-card ${
+                        organization.id === activeOrganizationId ? "bg-card font-semibold" : ""
+                      }`}
+                    >
+                      <span className="truncate">{organization.name}</span>
+                      <span className="ml-2 shrink-0 text-[10px] text-muted-foreground">
+                        {organization.myRole.replace(/_/g, " ")}
+                      </span>
+                    </button>
+                  ))
+                )}
+                <Link
+                  href="/organizations"
+                  onClick={() => setIsOrganizationOpen(false)}
+                  className="block rounded-md px-2 py-1.5 text-xs text-primary hover:bg-card"
+                >
+                  Manage organizations
+                </Link>
+              </div>
+            )}
           </div>
           <nav className="mt-8 space-y-1" aria-label="Workspace navigation">
             <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Workspace</p>
             {navItems(navigation)}
             <p className="mb-2 mt-8 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Manage</p>
-            {navItems(management)}
+            {navItems(management.filter((item) =>
+              (item.href !== "/organizations" && item.href !== "/invitations") || isOrganizationAdmin
+            ))}
           </nav>
           <div className="relative mt-auto border-t pt-4">
             

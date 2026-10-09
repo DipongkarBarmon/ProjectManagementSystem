@@ -242,6 +242,11 @@ const acceptInvitation = async (token: string, userId: string) => {
         return membership
       })
 
+      const organization = await prisma.organization.findUnique({
+        where: { id: invitation.organizationId, deletedAt: null },
+        select: { id: true, name: true, slug: true, logo: true },
+      })
+
       await ActivityService.createActivity({
           organizationId: invitation.organizationId,
           actorId: userId,
@@ -251,11 +256,11 @@ const acceptInvitation = async (token: string, userId: string) => {
           description: `Accepted invitation and joined organization`,
       });
 
-      return result
+      return { membership: result, organization }
 }
 
 
-const getAllInvitations = async (query : IGetAllInvitationsPayload)=>{
+const getAllInvitations = async (organizationId: string, query : IGetAllInvitationsPayload)=>{
         const limit = query.limit?Number(query.limit) : 10;
         const page = query.page?Number(query.page): 1;
         const skip = (page -1)*limit;
@@ -317,7 +322,7 @@ const getAllInvitations = async (query : IGetAllInvitationsPayload)=>{
 
         const invitations = await prisma.invitation.findMany({
             where : {
-              AND : addConditions
+              AND : [{ organizationId }, ...addConditions]
             },
             skip,
             take: limit,
@@ -330,15 +335,13 @@ const getAllInvitations = async (query : IGetAllInvitationsPayload)=>{
 }
 
 
-const getInvitationById = async (invitationId: string) => {
+const getInvitationById = async (invitationId: string, organizationId: string) => {
     if (!invitationId) {
       throw new Error("Invitation ID is required")
     }
 
-    const invitation = await prisma.invitation.findUnique({
-      where: { 
-        id: invitationId  
-      }, 
+    const invitation = await prisma.invitation.findFirst({
+      where: { id: invitationId, organizationId },
       include: {
         organization: {
           select: {
@@ -363,15 +366,13 @@ const getInvitationById = async (invitationId: string) => {
     return invitation
   }     
 
-const cencelInvitation = async (invitationId: string) => {
+const cencelInvitation = async (invitationId: string, organizationId: string) => {
     if (!invitationId) {
       throw new Error("Invitation ID is required")
     }
 
-    const invitation = await prisma.invitation.findUnique({
-      where: { 
-        id: invitationId  
-      }
+    const invitation = await prisma.invitation.findFirst({
+      where: { id: invitationId, organizationId }
     })
 
     if (!invitation) {
@@ -383,9 +384,7 @@ const cencelInvitation = async (invitationId: string) => {
     }
 
     const updatedInvitation = await prisma.invitation.update({
-      where: { 
-        id: invitationId  
-      },
+      where: { id: invitationId },
       data: {
         status: InvitationStatus.CANCELLED,
       },
@@ -394,16 +393,16 @@ const cencelInvitation = async (invitationId: string) => {
     return updatedInvitation
   }   
 
-  const deleteInvitation = async (invitationId: string) => {  
+  const deleteInvitation = async (invitationId: string, organizationId: string) => {
       if (!invitationId) {
         throw new Error("Invitation ID is required")
       }
 
-      const invitation = await prisma.invitation.delete({
-        where: { 
-          id: invitationId  
-        }
+      const existingInvitation = await prisma.invitation.findFirst({
+        where: { id: invitationId, organizationId },
       })
+      if (!existingInvitation) throw new Error("Invitation not found")
+      const invitation = await prisma.invitation.delete({ where: { id: invitationId } })
 
       return invitation
 }   

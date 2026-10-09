@@ -76,6 +76,13 @@ export type BillingPlan = {
   isActive: boolean;
 };
 
+export type OrganizationCreatePayload = {
+  name: string;
+  slug: string;
+  description?: string;
+  logo?: File;
+};
+
 let isRefreshing = false;
 let refreshSubscribers: ((success: boolean) => void)[] = [];
 
@@ -188,7 +195,19 @@ export const api = {
   organizations: {
     list: (params?: PaginationParams, options?: RequestInit) => request<any>(`/organizations/get-all-organizations${buildQuery(params)}`, options),
     get: (orgId: string, options?: RequestInit) => request<any>(`/organizations/${orgId}`, options),
-    create: (payload: Record<string, any>, options?: RequestInit) => request<any>("/organizations/create-organization", { ...options, method: "POST", body: JSON.stringify(payload) }),
+    create: (payload: OrganizationCreatePayload | FormData, options?: RequestInit) => {
+      const body = payload instanceof FormData
+        ? payload
+        : (() => {
+            const formData = new FormData();
+            formData.append("name", payload.name);
+            formData.append("slug", payload.slug);
+            if (payload.description) formData.append("description", payload.description);
+            if (payload.logo) formData.append("logo", payload.logo);
+            return formData;
+          })();
+      return request<any>("/organizations/create-organization", { ...options, method: "POST", body });
+    },
     updateInfo: (orgId: string, payload: Record<string, any>, options?: RequestInit) => request<any>(`/organizations/${orgId}/update-OrganizationInfo`, { ...options, method: "POST", body: JSON.stringify(payload) }),
     updateLogo: (orgId: string, payload: FormData, options?: RequestInit) => request<any>(`/organizations/${orgId}/update-logo`, { ...options, method: "POST", body: payload }),
     delete: (orgId: string, options?: RequestInit) => request<any>(`/organizations/${orgId}`, { ...options, method: "DELETE" }),
@@ -198,6 +217,19 @@ export const api = {
     invite: (orgId: string, payload: Record<string, any>, options?: RequestInit) => request<any>(`/invitations/${orgId}/sent-invitation`, { ...options, method: "POST", body: JSON.stringify(payload) }),
     updateRole: (orgId: string, memberId: string, payload: Record<string, any>, options?: RequestInit) => request<any>(`/organizations/${orgId}/members/${memberId}/role`, { ...options, method: "PATCH", body: JSON.stringify(payload) }),
     remove: (orgId: string, memberId: string, options?: RequestInit) => request<any>(`/organizations/${orgId}/members/${memberId}`, { ...options, method: "DELETE" }),
+  },
+  invitations: {
+    list: (orgId: string, params?: PaginationParams, options?: RequestInit) => request<any>(`/invitations/${orgId}/invitations${buildQuery(params)}`, options),
+    get: (orgId: string, invitationId: string, options?: RequestInit) => request<any>(`/invitations/${orgId}/invitations/${invitationId}`, options),
+    getByToken: (token: string, options?: RequestInit) => request<any>(`/invitations/${token}`, options),
+    send: (orgId: string, payload: { email: string; organizationRole: string }, options?: RequestInit) =>
+      request<any>(`/invitations/${orgId}/sent-invitation`, { ...options, method: "POST", body: JSON.stringify(payload) }),
+    cancel: (orgId: string, invitationId: string, options?: RequestInit) =>
+      request<any>(`/invitations/${orgId}/invitations/${invitationId}/cancel`, { ...options, method: "PATCH" }),
+    delete: (orgId: string, invitationId: string, options?: RequestInit) =>
+      request<any>(`/invitations/${orgId}/invitations/${invitationId}`, { ...options, method: "DELETE" }),
+    accept: (token: string, options?: RequestInit) =>
+      request<any>(`/invitations/${token}/accept`, { ...options, method: "POST" }),
   },
   teams: {
     list: (orgId: string, params?: PaginationParams, options?: RequestInit) => request<any>(`/teams/${orgId}/get-all-teams${buildQuery(params)}`, options),

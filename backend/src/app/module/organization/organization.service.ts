@@ -5,6 +5,7 @@ import { deleteFromCloudinary, uploadToCloudinary } from "../../lib/cloudinary";
 import { OrganizationRole, ActivityAction } from "../../../../generated/prisma/enums";
 import { OrganizationWhereInput } from "../../../../generated/prisma/models";
 import { ActivityService } from "../activity/activity.service";
+import { UploadApiResponse } from "cloudinary";
 
 const createOrganization = async (payload : ICreateOrganization,fileBuffer : Buffer , userId : string) => {
   const {name,slug,description} = payload
@@ -59,7 +60,7 @@ const createOrganization = async (payload : ICreateOrganization,fileBuffer : Buf
     throw new Error("Organization already exists")
   }
 
-  let cloudinaryResult;
+  let cloudinaryResult: UploadApiResponse;
   if (fileBuffer) {
     try {
        cloudinaryResult = await uploadToCloudinary(fileBuffer,'organization-logo')
@@ -273,10 +274,17 @@ const updateOrganizationInfo = async(payload:IUpdateOrganizationInfo,userId : st
 
 
 
-const getOrganizationById = async(organizationId: string)=> {
+const getOrganizationById = async(organizationId: string, userId?: string)=> {
+    if (userId) {
+        const membership = await prisma.organizationMember.findUnique({
+            where: { organizationId_userId: { organizationId, userId } },
+        });
+        if (!membership) throw new Error("Organization not found");
+    }
     const organization = await prisma.organization.findUnique({
         where : {
-            id : organizationId
+            id : organizationId,
+            deletedAt: null,
         },
         include : {
             members : true,
@@ -293,7 +301,7 @@ const getOrganizationById = async(organizationId: string)=> {
       data: organization
     } 
 }
-const getAllOrganizations = async(query: IOrganizationQuery)=> {
+const getAllOrganizations = async(query: IOrganizationQuery, userId?: string)=> {
      // Implement the logic to fetch all organizations with the given query
      const limit = query.limit?Number(query.limit) : 10;
      const page = query.page?Number(query.page): 1;
@@ -346,10 +354,16 @@ const getAllOrganizations = async(query: IOrganizationQuery)=> {
         })
      }    
  
+     const where: OrganizationWhereInput = {
+          AND : [
+           { deletedAt: null },
+           ...addConditions,
+            ...(userId ? [{ members: { some: { userId } } }] : []),
+          ],
+        };
+
      const organizations = await prisma.organization.findMany({
-        where : {
-          AND : addConditions
-        },
+        where,
         skip,
         take: limit,
         orderBy: {
@@ -358,14 +372,18 @@ const getAllOrganizations = async(query: IOrganizationQuery)=> {
         include: {
             subscription: {
                 include: { plan: true }
-            }
+            },
+            ...(userId ? {
+                members: {
+                    where: { userId },
+                    select: { organizationRole: true },
+                },
+            } : {}),
         }
      })
     
      const totalOrganizations = await prisma.organization.count({
-        where : {
-          AND : addConditions
-        }
+        where
      })
 
      const totalPages = Math.ceil(totalOrganizations/limit)
@@ -384,6 +402,7 @@ const getAllOrganizations = async(query: IOrganizationQuery)=> {
 
 const getAllOrganizationsForAdmin = async () => {
     return await prisma.organization.findMany({
+        where: { deletedAt: null },
         orderBy: { createdAt: 'desc' },
         include: {
             subscription: { include: { plan: true } },
@@ -395,7 +414,8 @@ const getAllOrganizationsForAdmin = async () => {
 const deleteOrganization = async(organizationId: string, userId: string)=> {
     const organization = await prisma.organization.findUnique({
         where : {
-            id : organizationId
+            id : organizationId,
+            deletedAt: null,
         }
     })
     if(!organization){

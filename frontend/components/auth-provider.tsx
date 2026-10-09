@@ -17,8 +17,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [initialize, isInitialized]);
 
-  const publicRoutes = ["/login", "/register", "/verify-email", "/forgot-password", "/reset-password", "/unauthorized", "/forbidden"];
+  const publicRoutes = ["/login", "/register", "/verify-email", "/forgot-password", "/reset-password", "/invitation/accept", "/unauthorized", "/forbidden"];
   const isPublicRoute = pathname === "/" || publicRoutes.some((route) => pathname.startsWith(route));
+  const isInvitationAcceptanceRoute = pathname.startsWith("/invitation/accept");
 
   // If we are still initializing and this isn't a public route where we just show the form immediately,
   // we might want to show a loading screen to prevent flash of content.
@@ -41,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const isPublicRoute = pathname === "/" || publicRoutes.some((route) => pathname.startsWith(route));
-    if (isPublicRoute) {
+    if (isPublicRoute && !isInvitationAcceptanceRoute) {
       if (typeof window !== "undefined") {
         window.location.assign(user.platformRole === "SUPER_ADMIN" ? "/admin" : "/dashboard");
       }

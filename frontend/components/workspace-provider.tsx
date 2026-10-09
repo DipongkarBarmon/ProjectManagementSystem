@@ -34,7 +34,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
             id: org.organization?.id || org.id,
             name: org.organization?.name || org.name,
             logo: org.organization?.logo || org.logo,
-            myRole: org.role || "MEMBER" // depends on how backend returns memberships
+            myRole: org.role || org.members?.[0]?.organizationRole || "MEMBER"
           }));
 
           setOrganizations(mappedOrgs);
@@ -47,7 +47,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
             }
           } else {
             // User has no organizations. Redirect to onboarding if not already there.
-            if (!pathname.startsWith("/onboarding")) {
+            if (!pathname.startsWith("/onboarding") && !pathname.startsWith("/invitation/accept")) {
               router.push("/onboarding");
             }
           }
@@ -66,7 +66,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
   // Prevent rendering workspace shell if no active org is set and user is not super admin
   // (unless they are on onboarding page)
-  if (isAuthenticated && user?.platformRole !== "SUPER_ADMIN" && !activeOrganizationId && !pathname.startsWith("/onboarding")) {
+  if (isAuthenticated && user?.platformRole !== "SUPER_ADMIN" && !activeOrganizationId && !pathname.startsWith("/onboarding") && !pathname.startsWith("/invitation/accept")) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

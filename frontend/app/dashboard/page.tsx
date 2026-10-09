@@ -29,8 +29,9 @@ function Stat({ label, value, icon: Icon, tone, loading }: { label: string; valu
 }
 
 export default function DashboardPage() { 
-  const { activeOrganizationId } = useWorkspaceStore();
+  const { activeOrganizationId, organizations } = useWorkspaceStore();
   const { user } = useAuthStore();
+  const activeOrganization = organizations.find((organization) => organization.id === activeOrganizationId);
 
   const { data: projectsRes, isLoading: projectsLoading } = useQuery({
     queryKey: ['dashboard', 'projects', activeOrganizationId],
@@ -86,7 +87,14 @@ export default function DashboardPage() {
           <div>
             <p className="mb-1 text-sm font-medium text-primary">{today}</p>
             <h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">Good morning, {firstName}</h1>
-            <p className="mt-1.5 text-sm text-muted-foreground">Here is what is happening across your workspace.</p>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              Here is what is happening across {activeOrganization?.name || "your workspace"}.
+            </p>
+            {activeOrganization && (
+              <p className="mt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Your role: {activeOrganization.myRole.replace(/_/g, " ")}
+              </p>
+            )}
           </div>
           <Link href="/tasks" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-blue-700">
             <Plus size={17} />Create task

@@ -26,9 +26,10 @@ export const validationRequest = (zodSchema : z.ZodObject) => {
               throw new Error(result.error.issues[0].message)
            }
 
+           // Express exposes `query` and `params` through getter-backed
+           // properties in newer versions, so assigning to them throws.
+           // Controllers can safely read the validated request values directly.
            if (result.data.body) req.body = result.data.body;
-           if (result.data.query) req.query = result.data.query;
-           if (result.data.params) req.params = result.data.params;
            next()
     })
 }
