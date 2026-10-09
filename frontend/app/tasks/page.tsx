@@ -4,22 +4,33 @@
 import { Filter, MoreHorizontal, Plus, Search, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { WorkspaceShell } from "@/components/workspace-shell";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { useWorkspaceStore } from "@/lib/store/workspace-store";
 import { format } from "date-fns";
 import Link from "next/link";
+import { toast } from "sonner";
 
 export default function TasksPage() {
   const { activeOrganizationId } = useWorkspaceStore();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("All");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [form, setForm] = useState({ projectId: "", title: "", description: "", priority: "MEDIUM" });
+  const queryClient = useQueryClient();
 
   const { data: tasksRes, isLoading } = useQuery({
     queryKey: ['tasks', activeOrganizationId],
     queryFn: () => api.tasks.listAll(activeOrganizationId!),
     enabled: !!activeOrganizationId
   });
+
+  const { data: projectsRes } = useQuery({
+    queryKey: ["projects", activeOrganizationId],
+    queryFn: () => api.projects.list(activeOrganizationId!),
+    enabled: !!activeOrganizationId,
+  });
+  const projects = Array.isArray(projectsRes?.data?.data || projectsRes?.data) ? (projectsRes?.data?.data || projectsRes?.data) : [];
 
   const rawTasks = tasksRes?.data?.data || tasksRes?.data || [];
   const allTasks = Array.isArray(rawTasks) ? rawTasks : [];
@@ -41,6 +52,30 @@ export default function TasksPage() {
     }
   };
 
+  const createMutation = useMutation({
+    mutationFn: () => api.tasks.create(activeOrganizationId!, form.projectId, {
+      title: form.title.trim(),
+      description: form.description.trim() || undefined,
+      priority: form.priority,
+    }),
+    onSuccess: () => {
+      toast.success("Task created");
+      setForm({ projectId: "", title: "", description: "", priority: "MEDIUM" });
+      setIsCreateOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["tasks", activeOrganizationId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: ({ projectId, taskId }: { projectId: string; taskId: string }) => api.tasks.delete(activeOrganizationId!, projectId, taskId),
+    onSuccess: () => {
+      toast.success("Task deleted");
+      queryClient.invalidateQueries({ queryKey: ["tasks", activeOrganizationId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   return (
     <WorkspaceShell title="Tasks">
       <main className="mx-auto max-w-6xl p-5 sm:p-8">
@@ -50,10 +85,30 @@ export default function TasksPage() {
             <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-[28px]">Tasks</h1>
             <p className="mt-1.5 text-sm text-muted-foreground">Your team&apos;s work, organized by priority and momentum.</p>
           </div>
-          <button className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-blue-700">
+          <button onClick={() => setIsCreateOpen(true)} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-blue-700">
             <Plus size={17} />New task
           </button>
         </div>
+
+        {isCreateOpen && (
+          <form onSubmit={(event) => { event.preventDefault(); createMutation.mutate(); }} className="mt-6 rounded-xl border bg-card p-5">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <select required value={form.projectId} onChange={(event) => setForm({ ...form, projectId: event.target.value })} className="rounded-lg border bg-background px-3 py-2 text-sm">
+                <option value="">Select project</option>
+                {projects.map((project: any) => <option key={project.id} value={project.id}>{project.name}</option>)}
+              </select>
+              <input required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Task title" className="rounded-lg border bg-background px-3 py-2 text-sm" />
+              <input value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Description" className="rounded-lg border bg-background px-3 py-2 text-sm" />
+              <select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })} className="rounded-lg border bg-background px-3 py-2 text-sm">
+                {["LOW", "MEDIUM", "HIGH", "URGENT"].map((priority) => <option key={priority} value={priority}>{priority}</option>)}
+              </select>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => setIsCreateOpen(false)} className="rounded-lg border px-3 py-2 text-sm">Cancel</button>
+              <button disabled={createMutation.isPending} className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">{createMutation.isPending ? "Creating..." : "Create task"}</button>
+            </div>
+          </form>
+        )}
 
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           <div className="rounded-xl border bg-card p-5">
@@ -100,6 +155,7 @@ export default function TasksPage() {
                   <th className="px-5 py-3 font-semibold">Status</th>
                   <th className="px-5 py-3 font-semibold">Priority</th>
                   <th className="px-5 py-3 font-semibold">Updated</th>
+                  <th />
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -134,6 +190,9 @@ export default function TasksPage() {
                       </td>
                       <td className="px-5 py-4 text-xs text-muted-foreground">
                         {format(new Date(row.updatedAt), 'MMM d, yyyy')}
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <button onClick={() => { if (window.confirm(`Delete ${row.title}?`)) deleteMutation.mutate({ projectId: row.projectId, taskId: row.id }); }} className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-50">Delete</button>
                       </td>
                     </tr>
                   )

@@ -3645,7 +3645,8 @@ var getAllProjects = async (organizationId, query) => {
     });
   }
   addConditions.push({
-    organizationId
+    organizationId,
+    deletedAt: null
   });
   const projects = await prisma.project.findMany({
     where: {
@@ -3757,7 +3758,9 @@ var updateProject = async (organizationId, projectId, userId, payload) => {
   }
   const isxistingProject = await prisma.project.findUnique({
     where: {
-      id: projectId
+      id: projectId,
+      organizationId,
+      deletedAt: null
     }
   });
   if (!isxistingProject) {
@@ -3811,7 +3814,9 @@ var deleteProject = async (organizationId, projectId, userId) => {
   }
   const existingProject = await prisma.project.findUnique({
     where: {
-      id: projectId
+      id: projectId,
+      organizationId,
+      deletedAt: null
     }
   });
   if (!existingProject) {
@@ -5422,9 +5427,10 @@ var TaskService = class {
     const limit = query.limit ? Number(query.limit) : 10;
     const page = query.page ? Number(query.page) : 1;
     const skip = (page - 1) * limit;
-    const total = await prisma.task.count({ where: { projectId } });
+    const where = { projectId, deletedAt: null };
+    const total = await prisma.task.count({ where });
     const tasks = await prisma.task.findMany({
-      where: { projectId },
+      where,
       skip,
       take: limit,
       orderBy: { createdAt: "desc" },
@@ -5441,9 +5447,13 @@ var TaskService = class {
     const limit = query.limit ? Number(query.limit) : 50;
     const page = query.page ? Number(query.page) : 1;
     const skip = (page - 1) * limit;
-    const total = await prisma.task.count({ where: { organizationId } });
+    const where = {
+      project: { organizationId },
+      deletedAt: null
+    };
+    const total = await prisma.task.count({ where });
     const tasks = await prisma.task.findMany({
-      where: { organizationId },
+      where,
       skip,
       take: limit,
       orderBy: { createdAt: "desc" },
@@ -5473,8 +5483,8 @@ var TaskService = class {
     return task;
   }
   static async getTaskByIdForOrganization(taskId, user, organizationId) {
-    const task = await prisma.task.findUnique({
-      where: { id: taskId, organizationId },
+    const task = await prisma.task.findFirst({
+      where: { id: taskId, project: { organizationId }, deletedAt: null },
       include: {
         project: { select: { id: true, name: true } },
         assignee: { select: { id: true, name: true, email: true } },
@@ -5489,8 +5499,8 @@ var TaskService = class {
   }
   static async updateTask(projectId, taskId, payload, user, organizationId) {
     const { isOrgAdmin, isProjectManager } = await this.verifyProjectAccess(projectId, organizationId, user);
-    const task = await prisma.task.findUnique({
-      where: { id: taskId, projectId }
+    const task = await prisma.task.findFirst({
+      where: { id: taskId, projectId, project: { organizationId }, deletedAt: null }
     });
     if (!task) {
       throw new Error("Task not found");
@@ -5589,8 +5599,8 @@ var TaskService = class {
     if (!isOrgAdmin && !isProjectManager) {
       throw new Error("Only organization admins and project managers can delete tasks");
     }
-    const task = await prisma.task.findUnique({
-      where: { id: taskId, projectId }
+    const task = await prisma.task.findFirst({
+      where: { id: taskId, projectId, project: { organizationId }, deletedAt: null }
     });
     if (!task) {
       throw new Error("Task not found");

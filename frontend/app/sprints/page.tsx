@@ -4,16 +4,20 @@
 import { Filter, MoreHorizontal, Plus, Search, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { WorkspaceShell } from "@/components/workspace-shell";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { useWorkspaceStore } from "@/lib/store/workspace-store";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 export default function SprintsPage() {
   const { activeOrganizationId } = useWorkspaceStore();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("All");
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [form, setForm] = useState({ name: "", goal: "", startDate: "", endDate: "" });
+  const queryClient = useQueryClient();
 
   const { data: projectsRes, isLoading: projectsLoading } = useQuery({
     queryKey: ['projects', activeOrganizationId],
@@ -45,6 +49,40 @@ export default function SprintsPage() {
     return matchesQuery && matchesFilter;
   });
 
+  const createMutation = useMutation({
+    mutationFn: () => api.sprints.create(activeOrganizationId!, selectedProjectId, {
+      name: form.name.trim(),
+      goal: form.goal.trim() || undefined,
+      startDate: form.startDate ? new Date(form.startDate).toISOString() : undefined,
+      endDate: form.endDate ? new Date(form.endDate).toISOString() : undefined,
+    }),
+    onSuccess: () => {
+      toast.success("Sprint created");
+      setForm({ name: "", goal: "", startDate: "", endDate: "" });
+      setIsCreateOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["sprints", activeOrganizationId, selectedProjectId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (sprintId: string) => api.sprints.complete(activeOrganizationId!, selectedProjectId, sprintId),
+    onSuccess: () => {
+      toast.success("Sprint completed");
+      queryClient.invalidateQueries({ queryKey: ["sprints", activeOrganizationId, selectedProjectId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (sprintId: string) => api.sprints.delete(activeOrganizationId!, selectedProjectId, sprintId),
+    onSuccess: () => {
+      toast.success("Sprint deleted");
+      queryClient.invalidateQueries({ queryKey: ["sprints", activeOrganizationId, selectedProjectId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   return (
     <WorkspaceShell title="Sprints">
       <main className="mx-auto max-w-6xl p-5 sm:p-8">
@@ -56,11 +94,27 @@ export default function SprintsPage() {
           </div>
           <button 
             disabled={!selectedProjectId}
+            onClick={() => setIsCreateOpen(true)}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-blue-700 disabled:opacity-50"
           >
             <Plus size={17} />New sprint
           </button>
         </div>
+
+        {isCreateOpen && (
+          <form onSubmit={(event) => { event.preventDefault(); createMutation.mutate(); }} className="mt-6 rounded-xl border bg-card p-5">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Sprint name" className="rounded-lg border bg-background px-3 py-2 text-sm" />
+              <input value={form.goal} onChange={(event) => setForm({ ...form, goal: event.target.value })} placeholder="Sprint goal" className="rounded-lg border bg-background px-3 py-2 text-sm" />
+              <input type="date" value={form.startDate} onChange={(event) => setForm({ ...form, startDate: event.target.value })} className="rounded-lg border bg-background px-3 py-2 text-sm" />
+              <input type="date" value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} className="rounded-lg border bg-background px-3 py-2 text-sm" />
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => setIsCreateOpen(false)} className="rounded-lg border px-3 py-2 text-sm">Cancel</button>
+              <button disabled={createMutation.isPending} className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">{createMutation.isPending ? "Creating..." : "Create sprint"}</button>
+            </div>
+          </form>
+        )}
 
         <div className="mt-8 flex items-center gap-4">
           <label className="text-sm font-medium">Select Project:</label>
@@ -151,9 +205,14 @@ export default function SprintsPage() {
                         {format(new Date(row.createdAt), 'MMM d, yyyy')}
                       </td>
                       <td className="px-5 py-4 text-right">
-                        <button className="rounded-md p-1.5 text-muted-foreground opacity-0 hover:bg-muted group-hover:opacity-100" aria-label={`More options for ${row.name}`}>
-                          <MoreHorizontal size={16} />
-                        </button>
+                        <div className="flex justify-end gap-1">
+                          {row.status !== "COMPLETED" && (
+                            <button onClick={() => updateMutation.mutate(row.id)} className="rounded-md px-2 py-1 text-[11px] text-primary hover:bg-muted">Complete</button>
+                          )}
+                          <button onClick={() => { if (window.confirm(`Delete ${row.name}?`)) deleteMutation.mutate(row.id); }} className="rounded-md p-1.5 text-red-600 hover:bg-red-50" aria-label={`Delete ${row.name}`}>
+                            <MoreHorizontal size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )

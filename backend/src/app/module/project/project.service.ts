@@ -150,7 +150,8 @@ const getAllProjects = async (organizationId: string,query: IProjectQuery) => {
     }
 
     addConditions.push({
-        organizationId : organizationId
+        organizationId,
+        deletedAt: null,
     })
  
 
@@ -281,7 +282,9 @@ const updateProject = async (organizationId: string,projectId: string,userId: st
 
     const isxistingProject = await prisma.project.findUnique({
         where: {
-            id: projectId
+            id: projectId,
+            organizationId,
+            deletedAt: null,
         },
     })
 
@@ -353,6 +356,8 @@ const deleteProject = async (organizationId: string, projectId: string, userId: 
     const existingProject = await prisma.project.findUnique({
         where: {
             id: projectId,
+            organizationId,
+            deletedAt: null,
         },
     })
 

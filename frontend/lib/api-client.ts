@@ -246,9 +246,11 @@ export const api = {
   },
   sprints: {
     list: (orgId: string, projectId: string, params?: PaginationParams, options?: RequestInit) => request<any>(`/sprints/organizations/${orgId}/projects/${projectId}/get-all-sprints${buildQuery(params)}`, options),
+    get: (orgId: string, projectId: string, sprintId: string, options?: RequestInit) => request<any>(`/sprints/organizations/${orgId}/projects/${projectId}/get-sprint/${sprintId}`, options),
     create: (orgId: string, projectId: string, payload: Record<string, any>, options?: RequestInit) => request<any>(`/sprints/organizations/${orgId}/projects/${projectId}/create-sprint`, { ...options, method: "POST", body: JSON.stringify(payload) }),
     update: (orgId: string, projectId: string, sprintId: string, payload: Record<string, any>, options?: RequestInit) => request<any>(`/sprints/organizations/${orgId}/projects/${projectId}/update-sprint/${sprintId}`, { ...options, method: "PATCH", body: JSON.stringify(payload) }),
     delete: (orgId: string, projectId: string, sprintId: string, options?: RequestInit) => request<any>(`/sprints/organizations/${orgId}/projects/${projectId}/delete-sprint/${sprintId}`, { ...options, method: "DELETE" }),
+    complete: (orgId: string, projectId: string, sprintId: string, options?: RequestInit) => request<any>(`/sprints/organizations/${orgId}/projects/${projectId}/complete-sprint/${sprintId}`, { ...options, method: "POST" }),
   },
   tasks: {
     list: (orgId: string, projectId: string, params?: PaginationParams, options?: RequestInit) => request<any>(`/tasks/organizations/${orgId}/projects/${projectId}/get-all-tasks${buildQuery(params)}`, options),

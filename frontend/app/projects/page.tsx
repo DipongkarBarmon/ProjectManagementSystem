@@ -4,15 +4,19 @@
 import { Filter, MoreHorizontal, Plus, Search, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { WorkspaceShell } from "@/components/workspace-shell";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { useWorkspaceStore } from "@/lib/store/workspace-store";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 export default function ProjectsPage() {
   const { activeOrganizationId } = useWorkspaceStore();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("All");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [form, setForm] = useState({ name: "", description: "", startDate: "", endDate: "" });
+  const queryClient = useQueryClient();
 
   const { data: projectsRes, isLoading } = useQuery({
     queryKey: ['projects', activeOrganizationId],
@@ -32,6 +36,31 @@ export default function ProjectsPage() {
 
   const activeProjectsCount = allProjects.filter((p: any) => p.status !== 'ARCHIVED').length;
 
+  const createMutation = useMutation({
+    mutationFn: () => api.projects.create(activeOrganizationId!, {
+      name: form.name.trim(),
+      description: form.description.trim() || undefined,
+      startDate: form.startDate ? new Date(form.startDate).toISOString() : null,
+      endDate: form.endDate ? new Date(form.endDate).toISOString() : null,
+    }),
+    onSuccess: () => {
+      toast.success("Project created");
+      setForm({ name: "", description: "", startDate: "", endDate: "" });
+      setIsCreateOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["projects", activeOrganizationId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (projectId: string) => api.projects.delete(activeOrganizationId!, projectId),
+    onSuccess: () => {
+      toast.success("Project archived");
+      queryClient.invalidateQueries({ queryKey: ["projects", activeOrganizationId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   return (
     <WorkspaceShell title="Projects">
       <main className="mx-auto max-w-6xl p-5 sm:p-8">
@@ -41,10 +70,25 @@ export default function ProjectsPage() {
             <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-[28px]">Projects</h1>
             <p className="mt-1.5 text-sm text-muted-foreground">Keep every initiative visible, focused, and moving forward.</p>
           </div>
-          <button className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-blue-700">
+          <button onClick={() => setIsCreateOpen(true)} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-blue-700">
             <Plus size={17} />New project
           </button>
         </div>
+
+        {isCreateOpen && (
+          <form onSubmit={(event) => { event.preventDefault(); createMutation.mutate(); }} className="mt-6 rounded-xl border bg-card p-5">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Project name" className="rounded-lg border bg-background px-3 py-2 text-sm" />
+              <input value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Description" className="rounded-lg border bg-background px-3 py-2 text-sm" />
+              <input type="date" value={form.startDate} onChange={(event) => setForm({ ...form, startDate: event.target.value })} className="rounded-lg border bg-background px-3 py-2 text-sm" />
+              <input type="date" value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} className="rounded-lg border bg-background px-3 py-2 text-sm" />
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => setIsCreateOpen(false)} className="rounded-lg border px-3 py-2 text-sm">Cancel</button>
+              <button disabled={createMutation.isPending} className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">{createMutation.isPending ? "Creating..." : "Create project"}</button>
+            </div>
+          </form>
+        )}
 
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           <div className="rounded-xl border bg-card p-5">
@@ -135,7 +179,12 @@ export default function ProjectsPage() {
                         {format(new Date(row.updatedAt), 'MMM d, yyyy')}
                       </td>
                       <td className="px-5 py-4 text-right">
-                        <button className="rounded-md p-1.5 text-muted-foreground opacity-0 hover:bg-muted group-hover:opacity-100" aria-label={`More options for ${row.name}`}>
+                        <button
+                          onClick={() => { if (window.confirm(`Archive ${row.name}?`)) deleteMutation.mutate(row.id); }}
+                          disabled={deleteMutation.isPending}
+                          className="rounded-md p-1.5 text-red-600 opacity-0 hover:bg-red-50 group-hover:opacity-100"
+                          aria-label={`Archive ${row.name}`}
+                        >
                           <MoreHorizontal size={16} />
                         </button>
                       </td>

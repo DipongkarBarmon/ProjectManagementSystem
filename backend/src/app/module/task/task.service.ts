@@ -111,10 +111,11 @@ export class TaskService {
     const page = query.page ? Number(query.page) : 1;
     const skip = (page - 1) * limit;
 
-    const total = await prisma.task.count({ where: { projectId } });
+    const where = { projectId, deletedAt: null };
+    const total = await prisma.task.count({ where });
 
     const tasks = await prisma.task.findMany({
-      where: { projectId },
+      where,
       skip,
       take: limit,
       orderBy: { createdAt: 'desc' },
@@ -135,10 +136,15 @@ export class TaskService {
     const page = query.page ? Number(query.page) : 1;
     const skip = (page - 1) * limit;
 
-    const total = await prisma.task.count({ where: { organizationId } });
+    const where = {
+      project: { organizationId },
+      deletedAt: null,
+    };
+
+    const total = await prisma.task.count({ where });
 
     const tasks = await prisma.task.findMany({
-      where: { organizationId },
+      where,
       skip,
       take: limit,
       orderBy: { createdAt: 'desc' },
@@ -174,8 +180,8 @@ export class TaskService {
   }
 
   static async getTaskByIdForOrganization(taskId: string, user: RequestUser, organizationId: string) {
-    const task = await prisma.task.findUnique({
-      where: { id: taskId, organizationId },
+    const task = await prisma.task.findFirst({
+      where: { id: taskId, project: { organizationId }, deletedAt: null },
       include: {
         project: { select: { id: true, name: true } },
         assignee: { select: { id: true, name: true, email: true } },
@@ -194,8 +200,8 @@ export class TaskService {
   static async updateTask(projectId: string, taskId: string, payload: IUpdateTaskPayload, user: RequestUser, organizationId: string) {
     const { isOrgAdmin, isProjectManager } = await this.verifyProjectAccess(projectId, organizationId, user);
 
-    const task = await prisma.task.findUnique({
-      where: { id: taskId, projectId }
+    const task = await prisma.task.findFirst({
+      where: { id: taskId, projectId, project: { organizationId }, deletedAt: null }
     });
 
     if (!task) {
@@ -311,8 +317,8 @@ export class TaskService {
        throw new Error("Only organization admins and project managers can delete tasks");
     }
 
-    const task = await prisma.task.findUnique({
-      where: { id: taskId, projectId }
+    const task = await prisma.task.findFirst({
+      where: { id: taskId, projectId, project: { organizationId }, deletedAt: null }
     });
 
     if (!task) {
