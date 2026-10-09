@@ -10,7 +10,7 @@ import { format } from "date-fns";
 export default function AdminActivityPage() {
   const { data: activityRes, isLoading } = useQuery({
     queryKey: ['admin_activity'],
-    queryFn: () => api.admin.activity.list ? api.admin.activity.list() : Promise.resolve({ data: [] }),
+    queryFn: () => api.admin.activity.list(),
   });
 
   const rawActivity = activityRes?.data?.data || activityRes?.data || [];

@@ -14,7 +14,7 @@ export default function AdminSubscriptionsPage() {
 
   const { data: subsRes, isLoading } = useQuery({
     queryKey: ['admin_subscriptions'],
-    queryFn: () => api.admin.subscriptions ? api.admin.subscriptions() : Promise.resolve({ data: [] }),
+    queryFn: () => api.admin.subscriptions(),
   });
 
   const rawSubs = subsRes?.data?.data || subsRes?.data || [];

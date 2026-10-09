@@ -32,7 +32,7 @@ const getAllUsersForAdmin = catchAsync(async (req: Request, res: Response, next:
 });
 
 const toggleBlockUser = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    const result = await UserService.toggleBlockUser(req.params.id, req.body.isBlocked);
+    const result = await UserService.toggleBlockUser(String(req.params.id), req.body.isBlocked);
     sendResponse(res, {
         success: true,
         statusCode: httpStatus.OK,
@@ -42,7 +42,7 @@ const toggleBlockUser = catchAsync(async (req: Request, res: Response, next: Nex
 });
 
 const softDeleteUser = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    const result = await UserService.softDeleteUser(req.params.id);
+    const result = await UserService.softDeleteUser(String(req.params.id));
     sendResponse(res, {
         success: true,
         statusCode: httpStatus.OK,

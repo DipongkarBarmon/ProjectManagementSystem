@@ -14,7 +14,7 @@ export default function AdminPaymentsPage() {
 
   const { data: paymentsRes, isLoading } = useQuery({
     queryKey: ['admin_payments'],
-    queryFn: () => api.admin.payments ? api.admin.payments() : Promise.resolve({ data: [] }),
+    queryFn: () => api.admin.payments(),
   });
 
   const rawPayments = paymentsRes?.data?.data || paymentsRes?.data || [];

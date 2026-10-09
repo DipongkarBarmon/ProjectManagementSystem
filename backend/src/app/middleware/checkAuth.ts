@@ -5,7 +5,7 @@ import config from "../config";
 import { prisma } from "../lib/prisma";
 import { catchAsync } from "../utils/catchAsync";
 import { jwtUtiles } from "../utils/jwt";
-import { OrganizationRole, PlatformRole } from "../../../../generated/prisma/enums";
+import { OrganizationRole, PlatformRole } from "../../../generated/prisma/enums";
 import { Permission } from "../config/permissions";
 import { RolePermissions } from "../config/rolePermissions";
 
@@ -128,7 +128,7 @@ export const auth = (options: AuthOptions = {}) => {
       }
 
       organizationRole = membership.organizationRole;
-      userPermissions = RolePermissions[organizationRole] || [];
+      userPermissions = RolePermissions[organizationRole as OrganizationRole] || [];
 
       // Check if user has ALL required permissions
       const hasAllRequired = options.permissions.every(perm => userPermissions.includes(perm));

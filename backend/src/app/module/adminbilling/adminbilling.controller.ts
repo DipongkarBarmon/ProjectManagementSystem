@@ -16,7 +16,7 @@ const createPlan = catchAsync(async (req: Request, res: Response) => {
 });
 
 const updatePlan = catchAsync(async (req: Request, res: Response) => {
-  const result = await AdminBillingService.updatePlan(req.params.planId, req.body);
+  const result = await AdminBillingService.updatePlan(String(req.params.planId), req.body);
   sendResponse(res, { success: true, statusCode: httpStatus.OK, message: "Plan updated", data: result });
 });
 

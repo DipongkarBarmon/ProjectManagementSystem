@@ -39,7 +39,7 @@ type Member = {
 const roles = ["ORG_ADMIN", "MANAGER", "TEAM_LEAD", "MEMBER", "GUEST"];
 
 function unwrap<T>(value: unknown): T {
-  const data = value?.data;
+  const data = (value as { data?: unknown } | null)?.data as { data?: unknown } | undefined;
   return (data?.data ?? data ?? []) as T;
 }
 
@@ -66,7 +66,15 @@ export default function OrganizationsPage() {
     () => unwrap<Organization[]>(organizationsResponse).filter((organization) => organization?.id),
     [organizationsResponse],
   );
-  const availableOrganizations = allOrganizations.length ? allOrganizations : organizations;
+  const availableOrganizations: Organization[] = allOrganizations.length
+    ? allOrganizations
+    : organizations.map((organization) => ({
+        id: organization.id,
+        name: organization.name,
+        slug: organization.name.toLowerCase().replace(/\s+/g, "-"),
+        logo: organization.logo,
+        subscription: organization.subscription,
+      }));
   const effectiveSelectedId = selectedId ?? availableOrganizations[0]?.id ?? null;
   const selectedOrganization = availableOrganizations.find((organization) => organization.id === effectiveSelectedId) ?? null;
 

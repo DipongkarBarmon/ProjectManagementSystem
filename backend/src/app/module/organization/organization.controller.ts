@@ -8,8 +8,11 @@ const createOrganization = catchAsync(async(req : Request,res : Response , next 
     const payload = req.file
     const userId = req.user?.userId
     console.log("userId",userId)
+    if (!payload) {
+        return res.status(httpStatus.BAD_REQUEST).json({ success: false, statusCode: httpStatus.BAD_REQUEST, message: "Organization logo is required.", data: null });
+    }
     
-    const result =await OrganizationService.createOrganization(body, payload?.buffer,userId as string)
+    const result =await OrganizationService.createOrganization(body, payload.buffer,userId as string)
     sendResponse(res,{
        success: true,
        statusCode : httpStatus.CREATED,

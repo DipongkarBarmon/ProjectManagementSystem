@@ -32,7 +32,7 @@ const management = [
   { label: "Admin", href: "/admin", icon: ShieldCheck, role: "SUPER_ADMIN" },
 ];
 
-export function WorkspaceShell({ children, title }: { children: ReactNode; title: string }) {
+export function WorkspaceShell({ children, title }: { children: ReactNode; title?: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);

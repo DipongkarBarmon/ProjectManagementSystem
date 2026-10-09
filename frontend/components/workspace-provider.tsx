@@ -10,7 +10,7 @@ import { useRouter, usePathname } from "next/navigation";
 
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated } = useAuthStore();
-  const { activeOrganizationId, organizations, setOrganizations, setActiveOrganizationId } = useWorkspaceStore();
+  const { activeOrganizationId, setOrganizations, setActiveOrganizationId } = useWorkspaceStore();
   const router = useRouter();
   const pathname = usePathname();
 

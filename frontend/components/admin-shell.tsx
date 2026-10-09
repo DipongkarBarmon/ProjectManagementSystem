@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { Activity, ChevronDown, LayoutDashboard, LogOut, Menu, Moon, ShieldCheck, Sun, Users, X, CreditCard, Building, Banknote, ListPlus } from "lucide-react";
@@ -38,7 +37,7 @@ export function AdminShell({ children, title }: { children: ReactNode; title: st
   async function logout() {
     try {
       await api.auth.logout();
-    } catch (e) {
+    } catch {
       // Ignore if logout fails
     }
     storeLogout();

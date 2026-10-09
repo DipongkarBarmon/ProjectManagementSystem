@@ -8,8 +8,11 @@ import config from "../../config";
 const register = catchAsync(async(req : Request,res : Response , next : NextFunction)=> {
     const body = req.body
     const payload = req.file
+    if (!payload) {
+        return res.status(httpStatus.BAD_REQUEST).json({ success: false, statusCode: httpStatus.BAD_REQUEST, message: "Profile image is required.", data: null });
+    }
     
-    await AuthService.registerIntoDB(body, payload?.buffer)
+    await AuthService.registerIntoDB(body, payload.buffer)
     sendResponse(res,{
        success: true,
        statusCode : httpStatus.CREATED,

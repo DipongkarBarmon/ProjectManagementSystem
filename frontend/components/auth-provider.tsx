@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect } from "react";
@@ -7,7 +6,7 @@ import { Loader2 } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { user, initialize, isInitialized, isLoading } = useAuthStore();
+  const { user, initialize, isInitialized } = useAuthStore();
   const pathname = usePathname();
 
   useEffect(() => {

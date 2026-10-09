@@ -295,7 +295,7 @@ export default function TaskDetailPage() {
                   <div className="flex justify-center p-8"><Loader2 className="animate-spin text-muted-foreground" /></div>
                 ) : (activitiesQuery.data?.data || []).length > 0 ? (
                   <div className="relative pl-4 border-l border-muted">
-                    {(activitiesQuery.data.data).map((activity: any) => (
+                    {(activitiesQuery.data?.data || []).map((activity: any) => (
                       <div key={activity.id} className="mb-6 relative">
                         <div className="absolute -left-6 top-1 w-4 h-4 rounded-full bg-primary/20 border-2 border-background flex items-center justify-center">
                           <div className="w-1.5 h-1.5 rounded-full bg-primary" />

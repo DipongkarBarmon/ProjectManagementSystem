@@ -10,7 +10,7 @@ import { format } from "date-fns";
 export default function AdminPlansPage() {
   const { data: plansRes, isLoading } = useQuery({
     queryKey: ['admin_plans'],
-    queryFn: () => api.admin.plans.list ? api.admin.plans.list() : Promise.resolve({ data: [] }), // Fallback just in case
+    queryFn: () => api.admin.plans.list(),
   });
 
   const rawPlans = plansRes?.data?.data || plansRes?.data || [];

@@ -91,7 +91,7 @@ function onRefreshed(success: boolean) {
   refreshSubscribers = [];
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+async function request<T = any>(path: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
   const headers: Record<string, string> = { ...(options.headers as Record<string, string>) };
   
   if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
@@ -190,6 +190,7 @@ export const api = {
     resetPassword: (payload: { email: string; otp: string; newPassword: string }, options?: RequestInit) => request("/auth/reset-password", { ...options, method: "POST", body: JSON.stringify(payload) }),
     refresh: (options?: RequestInit) => request("/auth/refresh-token", { ...options, method: "POST" }),
     me: (options?: RequestInit) => request<any>("/auth/me", { ...options, method: "GET" }), // Fixed from /users/me
+    updateProfile: (payload: { name?: string }, options?: RequestInit) => request<any>("/auth/me", { ...options, method: "PATCH", body: JSON.stringify(payload) }),
     logout: (options?: RequestInit) => request("/auth/logout", { ...options, method: "POST" }),
   },
   organizations: {
@@ -314,24 +315,24 @@ export const api = {
   },
   admin: {
     plans: {
-      list: (params?: PaginationParams, options?: RequestInit) => request(`/billing/plans${buildQuery(params)}`, options),
-      create: (payload: Record<string, any>, options?: RequestInit) => request("/billing/plans", { ...options, method: "POST", body: JSON.stringify(payload) }),
-      update: (planId: string, payload: Record<string, any>, options?: RequestInit) => request(`/billing/plans/${planId}`, { ...options, method: "PATCH", body: JSON.stringify(payload) }),
+      list: (params?: PaginationParams, options?: RequestInit) => request<any>(`/billing/plans${buildQuery(params)}`, options),
+      create: (payload: Record<string, any>, options?: RequestInit) => request<any>("/billing/plans", { ...options, method: "POST", body: JSON.stringify(payload) }),
+      update: (planId: string, payload: Record<string, any>, options?: RequestInit) => request<any>(`/billing/plans/${planId}`, { ...options, method: "PATCH", body: JSON.stringify(payload) }),
     },
     users: {
-      list: (params?: PaginationParams, options?: RequestInit) => request(`/users/admin/all${buildQuery(params)}`, options),
-      block: (userId: string, options?: RequestInit) => request(`/users/admin/${userId}/block`, { ...options, method: "PATCH", body: JSON.stringify({ isBlocked: true }) }),
-      unblock: (userId: string, options?: RequestInit) => request(`/users/admin/${userId}/block`, { ...options, method: "PATCH", body: JSON.stringify({ isBlocked: false }) }),
-      delete: (userId: string, options?: RequestInit) => request(`/users/admin/${userId}`, { ...options, method: "DELETE" }),
+      list: (params?: PaginationParams, options?: RequestInit) => request<any>(`/users/admin/all${buildQuery(params)}`, options),
+      block: (userId: string, options?: RequestInit) => request<any>(`/users/admin/${userId}/block`, { ...options, method: "PATCH", body: JSON.stringify({ isBlocked: true }) }),
+      unblock: (userId: string, options?: RequestInit) => request<any>(`/users/admin/${userId}/block`, { ...options, method: "PATCH", body: JSON.stringify({ isBlocked: false }) }),
+      delete: (userId: string, options?: RequestInit) => request<any>(`/users/admin/${userId}`, { ...options, method: "DELETE" }),
     },
     organizations: {
-      list: (params?: PaginationParams, options?: RequestInit) => request(`/organizations/admin/all${buildQuery(params)}`, options),
+      list: (params?: PaginationParams, options?: RequestInit) => request<any>(`/organizations/admin/all${buildQuery(params)}`, options),
     },
     activity: {
-      list: (params?: PaginationParams, options?: RequestInit) => request(`/activities/admin/global${buildQuery(params)}`, options),
+      list: (params?: PaginationParams, options?: RequestInit) => request<any>(`/activities/admin/global${buildQuery(params)}`, options),
     },
-    subscriptions: (params?: PaginationParams, options?: RequestInit) => request(`/billing/subscriptions${buildQuery(params)}`, options),
-    payments: (params?: PaginationParams, options?: RequestInit) => request(`/billing/payments${buildQuery(params)}`, options),
-    pendingPayments: (params?: PaginationParams, options?: RequestInit) => request(`/billing/payments/pending${buildQuery(params)}`, options),
+    subscriptions: (params?: PaginationParams, options?: RequestInit) => request<any>(`/billing/subscriptions${buildQuery(params)}`, options),
+    payments: (params?: PaginationParams, options?: RequestInit) => request<any>(`/billing/payments${buildQuery(params)}`, options),
+    pendingPayments: (params?: PaginationParams, options?: RequestInit) => request<any>(`/billing/payments/pending${buildQuery(params)}`, options),
   },
 };

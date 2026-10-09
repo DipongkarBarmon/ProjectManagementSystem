@@ -4,8 +4,22 @@ import { WorkspaceShell } from "@/components/workspace-shell";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { useWorkspaceStore } from "@/lib/store/workspace-store";
-import { Loader2, Activity as ActivityIcon, CheckCircle2, MessageSquare, Paperclip, UserPlus, Edit, Plus, Trash, UserCircle2, ArrowRight } from "lucide-react";
+import { Loader2, Activity as ActivityIcon, CheckCircle2, MessageSquare, Paperclip, UserPlus, Edit, Plus, Trash, UserCircle2 } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
+
+type ActivityItem = {
+  id: string;
+  action?: string;
+  description?: string;
+  entityType?: string;
+  actor?: { name?: string };
+  details?: {
+    task?: { title?: string };
+    project?: { name?: string };
+    sprint?: { name?: string };
+  };
+  createdAt: string;
+};
 
 export default function ActivityPage() {
   const { activeOrganizationId } = useWorkspaceStore();
@@ -34,7 +48,7 @@ export default function ActivityPage() {
             <div className="flex justify-center p-12"><Loader2 className="animate-spin text-muted-foreground w-8 h-8" /></div>
           ) : (activitiesQuery.data?.data || []).length > 0 ? (
             <div className="relative pl-6 border-l-2 border-muted/50 ml-4">
-              {(activitiesQuery.data.data).map((activity: any) => {
+              {(activitiesQuery.data?.data || []).map((activity: ActivityItem) => {
                 
                 // Helper to get Icon based on Action
                 const getIcon = () => {
@@ -77,7 +91,7 @@ export default function ActivityPage() {
                     }
                   }
 
-                  let description = activity.description || "";
+                  const description = activity.description || "";
                   
                   // Convert description like "Task created" to lowercase if we are prepending the actor name
                   // Some descriptions are "Uploaded attachments: x". We can just use it directly.

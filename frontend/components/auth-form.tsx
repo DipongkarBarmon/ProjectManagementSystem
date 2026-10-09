@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { GoogleLogin, GoogleOAuthProvider } from "@react-oauth/google";
@@ -6,7 +5,6 @@ import { ArrowRight, Eye, EyeOff, Loader2, Zap } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { jwtDecode } from "jwt-decode";
 import { api } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/store/auth-store";
 
@@ -45,7 +43,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       } else {
         throw new Error("Failed to fetch user profile after login.");
       }
-    } catch (err) {
+    } catch {
       setError("Failed to initialize session.");
     }
   }
@@ -61,7 +59,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         await api.auth.login(payload);
         await completeAuth();
       } else {
-        const result = await api.auth.register(formData);
+        await api.auth.register(formData);
         router.push(`/verify-email?email=${encodeURIComponent(payload.email)}`);
       }
     } catch (requestError) {
