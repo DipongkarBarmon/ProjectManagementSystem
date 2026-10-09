@@ -27,7 +27,18 @@ const getEntityActivities = catchAsync(async (req: Request, res: Response,next:N
     data: result });
 });
 
+const getGlobalActivities = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+  const result = await ActivityService.getGlobalActivities();
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Global activities retrieved successfully",
+    data: result
+  });
+});
+
 export const ActivityController = {
   getOrganizationActivities,
-  getEntityActivities
+  getEntityActivities,
+  getGlobalActivities
 };

@@ -9,6 +9,16 @@ const getPlans = catchAsync(async (req: Request, res: Response) => {
   sendResponse(res, { success: true, statusCode: httpStatus.OK, message: "Plans retrieved", data: result });
 });
 
+const createPlan = catchAsync(async (req: Request, res: Response) => {
+  const result = await AdminBillingService.createPlan(req.body);
+  sendResponse(res, { success: true, statusCode: httpStatus.CREATED, message: "Plan created", data: result });
+});
+
+const updatePlan = catchAsync(async (req: Request, res: Response) => {
+  const result = await AdminBillingService.updatePlan(req.params.planId, req.body);
+  sendResponse(res, { success: true, statusCode: httpStatus.OK, message: "Plan updated", data: result });
+});
+
 const getAllSubscriptions = catchAsync(async (req: Request, res: Response) => {
   const result = await AdminBillingService.getAllSubscriptions();
   sendResponse(res, { success: true, statusCode: httpStatus.OK, message: "Subscriptions retrieved", data: result });
@@ -44,6 +54,8 @@ const bkashCallback = catchAsync(async (req: Request, res: Response) => {
 
 export const AdminBillingController = {
   getPlans,
+  createPlan,
+  updatePlan,
   getAllSubscriptions,
   getPendingPayments,
   getAllPayments,

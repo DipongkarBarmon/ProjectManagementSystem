@@ -9,6 +9,14 @@ export class AdminBillingService {
     return prisma.plan.findMany();
   }
 
+  static async createPlan(data: any) {
+    return prisma.plan.create({ data });
+  }
+
+  static async updatePlan(planId: string, data: any) {
+    return prisma.plan.update({ where: { id: planId }, data });
+  }
+
   static async getAllSubscriptions() {
     return prisma.subscription.findMany({ include: { plan: true, organization: true } });
   }

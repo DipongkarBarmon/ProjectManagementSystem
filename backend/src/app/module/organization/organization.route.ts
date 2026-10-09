@@ -15,6 +15,9 @@ router.post("/create-organization",auth({platformRoles:[PlatformRole.USER,Platfo
 router.post('/:organizationId/update-logo',auth({ permissions: [Permissions.ORG_UPDATE] }),upload.single("logo"),OrganizationController.updateLogo)
 
 router.post('/:organizationId/update-OrganizationInfo',auth({ permissions: [Permissions.ORG_UPDATE] }),validationRequest(OrganizationValidation.UpdateOrganizationInfoZodSchema),OrganizationController.updateOrganizationInfo)
+
+router.get('/admin/all', auth({ platformRoles: [PlatformRole.SUPER_ADMIN] }), OrganizationController.getAllOrganizationsForAdmin);
+
 router.get('/get-all-organizations',validationRequest(OrganizationValidation.GetAllOrganizationZodSchema),OrganizationController.getAllOrganizations)
 router.get('/:organizationId',OrganizationController.getOrganizationById)
 

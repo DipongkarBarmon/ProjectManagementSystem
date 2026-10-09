@@ -154,7 +154,23 @@ export const api = {
     getStats: (orgId: string) => request<any>(`/dashboard/${orgId}/stats`),
   },
   admin: {
-    plans: () => request("/billing/plans"),
+    plans: {
+      list: () => request("/billing/plans"),
+      create: (payload: Record<string, any>) => request("/billing/plans", { method: "POST", body: JSON.stringify(payload) }),
+      update: (planId: string, payload: Record<string, any>) => request(`/billing/plans/${planId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+    },
+    users: {
+      list: (query = "") => request(`/users/admin/all${query ? `?${query}` : ''}`),
+      block: (userId: string) => request(`/users/admin/${userId}/block`, { method: "PATCH", body: JSON.stringify({ isBlocked: true }) }),
+      unblock: (userId: string) => request(`/users/admin/${userId}/block`, { method: "PATCH", body: JSON.stringify({ isBlocked: false }) }),
+      delete: (userId: string) => request(`/users/admin/${userId}`, { method: "DELETE" }),
+    },
+    organizations: {
+      list: () => request("/organizations/admin/all"),
+    },
+    activity: {
+      list: () => request("/activities/admin/global"),
+    },
     subscriptions: () => request("/billing/subscriptions"),
     payments: () => request("/billing/payments"),
     pendingPayments: () => request("/billing/payments/pending"),

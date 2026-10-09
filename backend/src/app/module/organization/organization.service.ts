@@ -379,6 +379,17 @@ const getAllOrganizations = async(query: IOrganizationQuery)=> {
      }
 
 }
+
+const getAllOrganizationsForAdmin = async () => {
+    return await prisma.organization.findMany({
+        orderBy: { createdAt: 'desc' },
+        include: {
+            subscription: { include: { plan: true } },
+            _count: { select: { members: true, projects: true } }
+        }
+    });
+};
+
 const deleteOrganization = async(organizationId: string, userId: string)=> {
     const organization = await prisma.organization.findUnique({
         where : {
@@ -501,6 +512,7 @@ export const OrganizationService = {
   updateOrganizationInfo,
   getOrganizationById,
   getAllOrganizations,
+  getAllOrganizationsForAdmin,
   deleteOrganization,
   getMembers,
   updateMemberRole,

@@ -74,6 +74,16 @@ const getAllOrganizations = catchAsync(async(req : Request,res : Response , next
     })
 })
 
+const getAllOrganizationsForAdmin = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+    const result = await OrganizationService.getAllOrganizationsForAdmin();
+    sendResponse(res, {
+        success: true,
+        statusCode: httpStatus.OK,
+        message: "All organizations fetched successfully",
+        data: result
+    });
+});
+
 const deleteOrganization = catchAsync(async(req : Request,res : Response , next : NextFunction)=> {
     const organizationId = req.params.organizationId
     const userId = req.user?.userId
@@ -133,6 +143,7 @@ export const OrganizationController = {
     updateOrganizationInfo,
     getOrganizationById,
     getAllOrganizations,
+    getAllOrganizationsForAdmin,
     deleteOrganization,
     getMembers,
     updateMemberRole,
