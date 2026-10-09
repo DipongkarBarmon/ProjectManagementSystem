@@ -65,10 +65,11 @@ export default function AdminPlansPage() {
                         </div>
                       </td>
                       <td className="px-5 py-4 font-medium">
-                        ৳{row.price}
+                        {row.currency === "BDT" ? "৳" : `${row.currency || "৳"} `}
+                        {Number(row.priceMonthly || 0).toLocaleString("en-BD", { maximumFractionDigits: 2 })}
                       </td>
                       <td className="px-5 py-4">
-                        {row.memberLimit === -1 ? 'Unlimited' : row.memberLimit}
+                        {row.maxMembers === null || row.maxMembers === undefined ? "Unlimited" : row.maxMembers}
                       </td>
                       <td className="px-5 py-4 text-xs text-muted-foreground">
                         {format(new Date(row.createdAt), 'MMM d, yyyy')}

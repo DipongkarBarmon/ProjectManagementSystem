@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { Activity, Bell, LayoutDashboard, LogOut, Menu, Moon, ShieldCheck, Sun, Users, X, CreditCard, Building, Banknote, ListPlus } from "lucide-react";
+import { Activity, ChevronDown, LayoutDashboard, LogOut, Menu, Moon, ShieldCheck, Sun, Users, X, CreditCard, Building, Banknote, ListPlus } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useState, useEffect } from "react";
@@ -23,6 +23,7 @@ export function AdminShell({ children, title }: { children: ReactNode; title: st
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -86,7 +87,6 @@ export function AdminShell({ children, title }: { children: ReactNode; title: st
                 <span className="block truncate text-xs font-semibold">{user?.name || "Admin"}</span>
                 <span className="block text-[11px] text-muted-foreground">Super Admin</span>
               </span>
-              <button onClick={logout} className="rounded-md p-1.5 text-muted-foreground hover:bg-red-50 hover:text-red-600" aria-label="Log out" title="Log out"><LogOut size={15} /></button>
             </div>
           </div>
         </aside>
@@ -103,6 +103,34 @@ export function AdminShell({ children, title }: { children: ReactNode; title: st
               <button onClick={() => setTheme(dark ? "light" : "dark")} className="flex size-9 items-center justify-center rounded-lg border bg-card text-muted-foreground hover:text-foreground" aria-label="Toggle theme">
                 {mounted ? (dark ? <Sun size={17} /> : <Moon size={17} />) : <span className="size-[17px]" />}
               </button>
+              <div className="relative">
+                <button
+                  onClick={() => setIsProfileOpen((value) => !value)}
+                  className="flex items-center gap-2 rounded-lg border bg-card px-2.5 py-1.5 text-xs font-semibold hover:bg-muted"
+                  aria-expanded={isProfileOpen}
+                  aria-label="Open admin profile menu"
+                >
+                  <span className="flex size-6 items-center justify-center rounded-full bg-emerald-100 text-[9px] font-bold text-emerald-700">
+                    {getInitials(user?.name)}
+                  </span>
+                  <span className="hidden max-w-[120px] truncate sm:inline">{user?.name || "Admin"}</span>
+                  <ChevronDown size={14} className="text-muted-foreground" />
+                </button>
+                {isProfileOpen && (
+                  <div className="absolute right-0 top-12 z-50 w-56 rounded-xl border bg-card p-1.5 shadow-xl">
+                    <div className="px-2.5 py-2 text-xs text-muted-foreground">
+                      Signed in as <span className="font-semibold text-foreground">{user?.email || user?.name || "Admin"}</span>
+                    </div>
+                    <div className="my-1 h-px bg-border" />
+                    <button
+                      onClick={logout}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                    >
+                      <LogOut size={15} /> Log out
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </header>
           {children}

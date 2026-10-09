@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const isPublicRoute = pathname === "/" || publicRoutes.some((route) => pathname.startsWith(route));
-    if (isPublicRoute && !isInvitationAcceptanceRoute) {
+    if (isPublicRoute && pathname !== "/" && !isInvitationAcceptanceRoute) {
       if (typeof window !== "undefined") {
         window.location.assign(user.platformRole === "SUPER_ADMIN" ? "/admin" : "/dashboard");
       }
@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const workspaceRoutes = ["/dashboard", "/projects", "/tasks", "/teams", "/sprints", "/labels", "/activity", "/members", "/settings"];
-    const isWorkspaceRoute = workspaceRoutes.some(route => pathname.startsWith(route) || pathname === "/");
+    const isWorkspaceRoute = workspaceRoutes.some(route => pathname.startsWith(route));
     if (isWorkspaceRoute && user.platformRole === "SUPER_ADMIN") {
       if (typeof window !== "undefined") {
         window.location.assign("/admin");

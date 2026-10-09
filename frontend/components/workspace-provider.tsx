@@ -67,7 +67,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
   // Prevent rendering workspace shell if no active org is set and user is not super admin
   // (unless they are on onboarding page)
-  if (isAuthenticated && user?.platformRole !== "SUPER_ADMIN" && !activeOrganizationId && !pathname.startsWith("/onboarding") && !pathname.startsWith("/invitation/accept")) {
+  if (isAuthenticated && pathname !== "/" && user?.platformRole !== "SUPER_ADMIN" && !activeOrganizationId && !pathname.startsWith("/onboarding") && !pathname.startsWith("/invitation/accept")) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

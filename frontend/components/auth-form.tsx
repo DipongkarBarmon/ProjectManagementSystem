@@ -32,7 +32,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         const userData = res.data.user || res.data;
         setAuthUser(userData);
         
-        let target = userData.platformRole === "SUPER_ADMIN" ? "/admin" : "/dashboard";
+        let target = "/";
         if (typeof window !== "undefined") {
           const params = new URLSearchParams(window.location.search);
           const callbackUrl = params.get("callbackUrl");
