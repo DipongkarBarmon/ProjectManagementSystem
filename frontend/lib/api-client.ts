@@ -233,16 +233,24 @@ export const api = {
   },
   teams: {
     list: (orgId: string, params?: PaginationParams, options?: RequestInit) => request<any>(`/teams/${orgId}/get-all-teams${buildQuery(params)}`, options),
+    get: (orgId: string, teamId: string, options?: RequestInit) => request<any>(`/teams/${orgId}/get-team/${teamId}`, options),
     create: (orgId: string, payload: Record<string, any>, options?: RequestInit) => request<any>(`/teams/${orgId}/create-teams`, { ...options, method: "POST", body: JSON.stringify(payload) }),
     update: (orgId: string, teamId: string, payload: Record<string, any>, options?: RequestInit) => request<any>(`/teams/${orgId}/update-team/${teamId}`, { ...options, method: "PATCH", body: JSON.stringify(payload) }),
     delete: (orgId: string, teamId: string, options?: RequestInit) => request<any>(`/teams/${orgId}/delete-team/${teamId}`, { ...options, method: "DELETE" }),
+    addLeader: (orgId: string, teamId: string, userId: string, options?: RequestInit) => request<any>(`/teams/${orgId}/add-team-leader/${teamId}`, { ...options, method: "POST", body: JSON.stringify({ userId }) }),
+    addMember: (orgId: string, teamId: string, userId: string, options?: RequestInit) => request<any>(`/teams/${orgId}/add-team-member/${teamId}`, { ...options, method: "POST", body: JSON.stringify({ userId }) }),
+    removeMember: (orgId: string, teamId: string, userId: string, options?: RequestInit) => request<any>(`/teams/${orgId}/${teamId}/delete-member/${userId}`, { ...options, method: "DELETE" }),
+    members: (orgId: string, teamId: string, options?: RequestInit) => request<any>(`/teams/${orgId}/${teamId}/view-members`, options),
   },
   projects: {
-    list: (orgId: string, params?: PaginationParams, options?: RequestInit) => request<any>(`/projects/${orgId}/getAllprojects${buildQuery(params)}`, options),
+    list: (orgId: string, params?: PaginationParams & { status?: string }, options?: RequestInit) => request<any>(`/projects/${orgId}/getAllprojects${buildQuery(params)}`, options),
     get: (orgId: string, projectId: string, options?: RequestInit) => request<any>(`/projects/${orgId}/projects/${projectId}`, options),
     create: (orgId: string, payload: Record<string, any>, options?: RequestInit) => request<any>(`/projects/${orgId}/create-project`, { ...options, method: "POST", body: JSON.stringify(payload) }),
     update: (orgId: string, projectId: string, payload: Record<string, any>, options?: RequestInit) => request<any>(`/projects/${orgId}/projects/${projectId}`, { ...options, method: "PATCH", body: JSON.stringify(payload) }),
     delete: (orgId: string, projectId: string, options?: RequestInit) => request<any>(`/projects/${orgId}/projects/${projectId}`, { ...options, method: "DELETE" }),
+    assignManager: (orgId: string, projectId: string, memberId: string, options?: RequestInit) => request<any>(`/projects/${orgId}/projects/${projectId}/manager`, { ...options, method: "PATCH", body: JSON.stringify({ memberId }) }),
+    addMember: (orgId: string, projectId: string, memberId: string, options?: RequestInit) => request<any>(`/projects/${orgId}/projects/${projectId}/members`, { ...options, method: "PATCH", body: JSON.stringify({ memberId }) }),
+    removeMember: (orgId: string, projectId: string, userId: string, options?: RequestInit) => request<any>(`/projects/${orgId}/projects/${projectId}/members/${userId}`, { ...options, method: "DELETE" }),
   },
   sprints: {
     list: (orgId: string, projectId: string, params?: PaginationParams, options?: RequestInit) => request<any>(`/sprints/organizations/${orgId}/projects/${projectId}/get-all-sprints${buildQuery(params)}`, options),
@@ -260,6 +268,34 @@ export const api = {
     update: (orgId: string, projectId: string, taskId: string, payload: Record<string, any>, options?: RequestInit) => request<any>(`/tasks/organizations/${orgId}/projects/${projectId}/update-task/${taskId}`, { ...options, method: "PATCH", body: JSON.stringify(payload) }),
     delete: (orgId: string, projectId: string, taskId: string, options?: RequestInit) => request<any>(`/tasks/organizations/${orgId}/projects/${projectId}/delete-task/${taskId}`, { ...options, method: "DELETE" }),
     listAll: (orgId: string, params?: PaginationParams, options?: RequestInit) => request<any>(`/tasks/organizations/${orgId}/get-all-tasks${buildQuery(params)}`, options),
+  },
+  comments: {
+    list: (orgId: string, projectId: string, taskId: string, options?: RequestInit) => request<any>(`/comments/organizations/${orgId}/projects/${projectId}/tasks/${taskId}/get-comments`, options),
+    create: (orgId: string, projectId: string, taskId: string, content: string, options?: RequestInit) => request<any>(`/comments/organizations/${orgId}/projects/${projectId}/tasks/${taskId}/create-comments`, { ...options, method: "POST", body: JSON.stringify({ content }) }),
+    update: (orgId: string, projectId: string, commentId: string, content: string, options?: RequestInit) => request<any>(`/comments/organizations/${orgId}/projects/${projectId}/update-comments/${commentId}`, { ...options, method: "PATCH", body: JSON.stringify({ content }) }),
+    delete: (orgId: string, projectId: string, commentId: string, options?: RequestInit) => request<any>(`/comments/organizations/${orgId}/projects/${projectId}/delete-comments/${commentId}`, { ...options, method: "DELETE" }),
+  },
+  labels: {
+    list: (orgId: string, options?: RequestInit) => request<any>(`/labels/organizations/${orgId}/get-all-labels`, options),
+    create: (orgId: string, payload: { name: string; color?: string }, options?: RequestInit) => request<any>(`/labels/organizations/${orgId}/create-labels`, { ...options, method: "POST", body: JSON.stringify(payload) }),
+    update: (orgId: string, labelId: string, payload: { name?: string; color?: string }, options?: RequestInit) => request<any>(`/labels/organizations/${orgId}/update-label/${labelId}`, { ...options, method: "PATCH", body: JSON.stringify(payload) }),
+    delete: (orgId: string, labelId: string, options?: RequestInit) => request<any>(`/labels/organizations/${orgId}/labels/${labelId}`, { ...options, method: "DELETE" }),
+    assign: (orgId: string, labelId: string, taskId: string, options?: RequestInit) => request<any>(`/labels/organizations/${orgId}/labels/${labelId}/assign`, { ...options, method: "POST", body: JSON.stringify({ taskId }) }),
+    remove: (orgId: string, labelId: string, taskId: string, options?: RequestInit) => request<any>(`/labels/organizations/${orgId}/labels/${labelId}/tasks/${taskId}/remove`, { ...options, method: "DELETE" }),
+  },
+  notifications: {
+    list: (orgId: string, options?: RequestInit) => request<any>(`/organizations/${orgId}/notifications`, options),
+    markRead: (orgId: string, notificationIds: string[], options?: RequestInit) => request<any>(`/organizations/${orgId}/notifications/read`, { ...options, method: "PATCH", body: JSON.stringify({ notificationIds }) }),
+    markAllRead: (orgId: string, options?: RequestInit) => request<any>(`/organizations/${orgId}/notifications/read-all`, { ...options, method: "PATCH" }),
+  },
+  attachments: {
+    list: (orgId: string, projectId: string, taskId: string, options?: RequestInit) => request<any>(`/attachments/organizations/${orgId}/projects/${projectId}/tasks/${taskId}/attachments`, options),
+    upload: (orgId: string, projectId: string, taskId: string, files: FileList | File[], options?: RequestInit) => {
+      const formData = new FormData();
+      Array.from(files).forEach((file) => formData.append("files", file));
+      return request<any>(`/attachments/organizations/${orgId}/projects/${projectId}/tasks/${taskId}/attachments`, { ...options, method: "POST", body: formData });
+    },
+    delete: (orgId: string, projectId: string, attachmentId: string, options?: RequestInit) => request<any>(`/attachments/organizations/${orgId}/projects/${projectId}/tasks/attachments/${attachmentId}`, { ...options, method: "DELETE" }),
   },
   activity: {
     list: (orgId: string, params?: PaginationParams, options?: RequestInit) => request<any>(`/activities/organizations/${orgId}/get-activities${buildQuery(params)}`, options),

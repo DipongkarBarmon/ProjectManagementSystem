@@ -1,4 +1,4 @@
-import { OrganizationRole, UserStatus, ActivityAction } from "../../../../generated/prisma/enums"
+import { UserStatus, ActivityAction } from "../../../../generated/prisma/enums"
 import { ProjectWhereInput } from "../../../../generated/prisma/models"
 import { prisma } from "../../lib/prisma"
 import { ActivityService } from "../activity/activity.service"
@@ -151,7 +151,7 @@ const getAllProjects = async (organizationId: string,query: IProjectQuery) => {
 
     addConditions.push({
         organizationId,
-        deletedAt: null,
+        ...(query.status === "ARCHIVED" ? { status: "ARCHIVED" } : { deletedAt: null }),
     })
  
 
@@ -348,31 +348,22 @@ const updateProject = async (organizationId: string,projectId: string,userId: st
 }
 
 
-const deleteProject = async (organizationId: string, projectId: string, userId: string) => {
-    if(!projectId){
-        throw new Error("Project ID is required")
+const permanentlyDeleteProject = async (organizationId: string, projectId: string, userId: string) => {
+    if (!organizationId || !projectId) {
+        throw new Error("Organization ID and Project ID are required")
     }
 
-    const existingProject = await prisma.project.findUnique({
-        where: {
-            id: projectId,
-            organizationId,
-            deletedAt: null,
-        },
+    const existingProject = await prisma.project.findFirst({
+        where: { id: projectId, organizationId },
+        select: { id: true, name: true },
     })
 
     if (!existingProject) {
         throw new Error("Project not found")
     }
 
-    const project = await prisma.project.update({
-        where: {
-            id: projectId,
-        },
-        data: {
-            status: 'ARCHIVED',
-            deletedAt: new Date()
-        }
+    await prisma.project.delete({
+        where: { id: projectId },
     })
 
     await ActivityService.createActivity({
@@ -381,10 +372,10 @@ const deleteProject = async (organizationId: string, projectId: string, userId: 
         action: ActivityAction.DELETED,
         entityType: "PROJECT",
         entityId: projectId,
-        description: `Project ${existingProject.name} deleted`,
-    });
+        description: `Project ${existingProject.name} permanently deleted`,
+    })
 
-    return project
+    return { id: projectId }
 }
 
 
@@ -445,18 +436,6 @@ const assignProjectManager = async (organizationId: string,projectId: string,mem
     if (!manager) { 
          throw new Error("Member not found in the organization")   
     }
-    
-    const updateOrganizationMember = await prisma.organizationMember.update({
-        where: {
-            organizationId_userId: {
-                organizationId,
-                userId: memberId,
-            },
-        },
-        data: {
-            organizationRole: OrganizationRole.PROJECT_MANAGER,
-        },
-    })  
     
     const projectManager = await prisma.projectMember.upsert({
         where: {
@@ -546,18 +525,6 @@ const addMember = async ( organizationId: string, projectId: string, memberId: s
     if (!manager) { 
          throw new Error("Member not found in the organization")   
     }
-    
-    const updateOrganizationMember = await prisma.organizationMember.update({
-        where: {
-            organizationId_userId: {
-                organizationId,
-                userId: memberId,
-            },
-        },
-        data: {
-            organizationRole: OrganizationRole.MEMBER,
-        },
-    })  
     
     const projectMember = await prisma.projectMember.upsert({
         where: {
@@ -655,7 +622,7 @@ export const ProjectService = {
     getAllProjects,
     getProject,
     updateProject,
-    deleteProject,
+    permanentlyDeleteProject,
     assignProjectManager,
     addMember,
     removeMember,

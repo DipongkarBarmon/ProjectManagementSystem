@@ -3646,7 +3646,7 @@ var getAllProjects = async (organizationId, query) => {
   }
   addConditions.push({
     organizationId,
-    deletedAt: null
+    ...query.status === "ARCHIVED" ? { status: "ARCHIVED" } : { deletedAt: null }
   });
   const projects = await prisma.project.findMany({
     where: {
@@ -3808,28 +3808,19 @@ var updateProject = async (organizationId, projectId, userId, payload) => {
   });
   return project;
 };
-var deleteProject = async (organizationId, projectId, userId) => {
-  if (!projectId) {
-    throw new Error("Project ID is required");
+var permanentlyDeleteProject = async (organizationId, projectId, userId) => {
+  if (!organizationId || !projectId) {
+    throw new Error("Organization ID and Project ID are required");
   }
-  const existingProject = await prisma.project.findUnique({
-    where: {
-      id: projectId,
-      organizationId,
-      deletedAt: null
-    }
+  const existingProject = await prisma.project.findFirst({
+    where: { id: projectId, organizationId },
+    select: { id: true, name: true }
   });
   if (!existingProject) {
     throw new Error("Project not found");
   }
-  const project = await prisma.project.update({
-    where: {
-      id: projectId
-    },
-    data: {
-      status: "ARCHIVED",
-      deletedAt: /* @__PURE__ */ new Date()
-    }
+  await prisma.project.delete({
+    where: { id: projectId }
   });
   await ActivityService.createActivity({
     organizationId,
@@ -3837,9 +3828,9 @@ var deleteProject = async (organizationId, projectId, userId) => {
     action: ActivityAction.DELETED,
     entityType: "PROJECT",
     entityId: projectId,
-    description: `Project ${existingProject.name} deleted`
+    description: `Project ${existingProject.name} permanently deleted`
   });
-  return project;
+  return { id: projectId };
 };
 var assignProjectManager = async (organizationId, projectId, memberId, userId) => {
   if (!organizationId) {
@@ -3888,17 +3879,6 @@ var assignProjectManager = async (organizationId, projectId, memberId, userId) =
   if (!manager) {
     throw new Error("Member not found in the organization");
   }
-  const updateOrganizationMember = await prisma.organizationMember.update({
-    where: {
-      organizationId_userId: {
-        organizationId,
-        userId: memberId
-      }
-    },
-    data: {
-      organizationRole: OrganizationRole.PROJECT_MANAGER
-    }
-  });
   const projectManager = await prisma.projectMember.upsert({
     where: {
       projectId_userId: {
@@ -3973,17 +3953,6 @@ var addMember = async (organizationId, projectId, memberId, userId) => {
   if (!manager) {
     throw new Error("Member not found in the organization");
   }
-  const updateOrganizationMember = await prisma.organizationMember.update({
-    where: {
-      organizationId_userId: {
-        organizationId,
-        userId: memberId
-      }
-    },
-    data: {
-      organizationRole: OrganizationRole.MEMBER
-    }
-  });
   const projectMember = await prisma.projectMember.upsert({
     where: {
       projectId_userId: {
@@ -4065,7 +4034,7 @@ var ProjectService = {
   getAllProjects,
   getProject,
   updateProject,
-  deleteProject,
+  permanentlyDeleteProject,
   assignProjectManager,
   addMember,
   removeMember: removeMember3
@@ -4132,15 +4101,16 @@ var updateProject2 = catchAsync(async (req, res, next) => {
     data: result
   });
 });
-var deleteProject2 = catchAsync(async (req, res, next) => {
-  const organizationId = req.params.organizationId;
-  const projectId = req.params.projectId;
-  const userId = req.user?.userId;
-  const result = await ProjectService.deleteProject(organizationId, projectId, userId);
+var permanentlyDeleteProject2 = catchAsync(async (req, res) => {
+  const result = await ProjectService.permanentlyDeleteProject(
+    req.params.organizationId,
+    req.params.projectId,
+    req.user?.userId
+  );
   sendResponse(res, {
     success: true,
     statusCode: httpStatus7.OK,
-    message: "Project deleted successfully!",
+    message: "Project permanently deleted!",
     data: result
   });
 });
@@ -4199,7 +4169,7 @@ var ProjectController = {
   getAllProjects: getAllProjects2,
   getProject: getProject2,
   updateProject: updateProject2,
-  deleteProject: deleteProject2,
+  permanentlyDeleteProject: permanentlyDeleteProject2,
   assignProjectManager: assignProjectManager2,
   addMember: addMember2,
   removeMember: removeMember4
@@ -4231,7 +4201,7 @@ var projectMemberSchema = z4.object({
   })
 });
 var GetAllOrganizationProjectsZodSchema = z4.object({
-  body: z4.object({
+  query: z4.object({
     searchTerm: z4.string().optional(),
     page: z4.string().optional(),
     limit: z4.string().optional(),
@@ -4242,7 +4212,8 @@ var GetAllOrganizationProjectsZodSchema = z4.object({
     slug: z4.string().optional(),
     startDate: z4.string().optional(),
     endDate: z4.string().optional(),
-    organizationId: z4.string().uuid("Invalid organization ID format").optional()
+    organizationId: z4.string().uuid("Invalid organization ID format").optional(),
+    status: z4.enum(ProjectStatus).optional()
   }).optional()
 });
 var assignProjectManagerSchema = projectMemberSchema;
@@ -4260,7 +4231,7 @@ router5.post("/:organizationId/create-project", auth({ permissions: [Permissions
 router5.get("/:organizationId/getAllprojects", auth({ permissions: [Permissions.PROJECT_READ] }), validationRequest(ProjectValidation.GetAllOrganizationProjectsZodSchema), ProjectController.getAllProjects);
 router5.get("/:organizationId/projects/:projectId", auth({ permissions: [Permissions.PROJECT_READ] }), ProjectController.getProject);
 router5.patch("/:organizationId/projects/:projectId", auth({ permissions: [Permissions.PROJECT_UPDATE] }), validationRequest(ProjectValidation.updateProjectSchema), ProjectController.updateProject);
-router5.delete("/:organizationId/projects/:projectId", auth({ permissions: [Permissions.PROJECT_ARCHIVE] }), ProjectController.deleteProject);
+router5.delete("/:organizationId/projects/:projectId", auth({ permissions: [Permissions.PROJECT_ARCHIVE] }), ProjectController.permanentlyDeleteProject);
 router5.patch("/:organizationId/projects/:projectId/manager", auth({ permissions: [Permissions.PROJECT_UPDATE] }), validationRequest(ProjectValidation.assignProjectManagerSchema), ProjectController.assignProjectManager);
 router5.patch("/:organizationId/projects/:projectId/members", auth({ permissions: [Permissions.PROJECT_UPDATE] }), validationRequest(ProjectValidation.projectMemberSchema), ProjectController.addMember);
 router5.delete("/:organizationId/projects/:projectId/members/:userId", auth({ permissions: [Permissions.PROJECT_UPDATE] }), ProjectController.removeMember);
@@ -4271,7 +4242,7 @@ import { Router as Router5 } from "express";
 
 // src/app/module/team/team.service.ts
 var createTeam = async (payload, user, organizationId) => {
-  if (user.organizationRole !== OrganizationRole.ORG_ADMIN) {
+  if (user.organizationRole !== OrganizationRole.ORG_ADMIN && user.organizationRole !== OrganizationRole.OWNER) {
     throw new Error("Only organization admins can create teams.");
   }
   const existingTeam = await prisma.team.findUnique({
@@ -4431,7 +4402,7 @@ var getTeamById = async (teamId, user, organizationId) => {
   if (!team) {
     throw new Error("Team not found");
   }
-  const isManagerOrAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN || user.organizationRole === OrganizationRole.PROJECT_MANAGER;
+  const isManagerOrAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN || user.organizationRole === OrganizationRole.OWNER || user.organizationRole === OrganizationRole.PROJECT_MANAGER;
   if (!isManagerOrAdmin) {
     const isMember = team.members.some((m) => m.userId === user.userId);
     if (!isMember) {
@@ -4447,7 +4418,7 @@ var updateTeam = async (teamId, payload, user, organizationId) => {
   if (!team) {
     throw new Error("Team not found");
   }
-  const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN;
+  const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN || user.organizationRole === OrganizationRole.OWNER;
   const isTeamLead = user.organizationRole === OrganizationRole.TEAM_LEAD && team.teamLeadId === user.userId;
   if (!isOrgAdmin && !isTeamLead) {
     throw new Error("You don't have permission to update this team");
@@ -4467,7 +4438,7 @@ var updateTeam = async (teamId, payload, user, organizationId) => {
   return updatedTeam;
 };
 var deleteTeam = async (teamId, user, organizationId) => {
-  if (user.organizationRole !== OrganizationRole.ORG_ADMIN) {
+  if (user.organizationRole !== OrganizationRole.ORG_ADMIN && user.organizationRole !== OrganizationRole.OWNER) {
     throw new Error("Only organization admins can delete teams.");
   }
   const team = await prisma.team.findUnique({
@@ -4488,7 +4459,7 @@ var deleteTeam = async (teamId, user, organizationId) => {
   return team;
 };
 var assignTeamLead = async (teamId, payload, user, organizationId) => {
-  if (user.organizationRole !== OrganizationRole.ORG_ADMIN) {
+  if (user.organizationRole !== OrganizationRole.ORG_ADMIN && user.organizationRole !== OrganizationRole.OWNER) {
     throw new Error("Only organization admins can assign team leads.");
   }
   const team = await prisma.team.findUnique({
@@ -4542,7 +4513,7 @@ var addTeamMember = async (teamId, payload, user, organizationId) => {
     where: { id: teamId, organizationId }
   });
   if (!team) throw new Error("Team not found");
-  const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN;
+  const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN || user.organizationRole === OrganizationRole.OWNER;
   const isTeamLead = user.organizationRole === OrganizationRole.TEAM_LEAD && team.teamLeadId === user.userId;
   if (!isOrgAdmin && !isTeamLead) {
     throw new Error("You don't have permission to add members to this team");
@@ -4591,7 +4562,7 @@ var removeTeamMember = async (teamId, targetUserId, user, organizationId) => {
     where: { id: teamId, organizationId }
   });
   if (!team) throw new Error("Team not found");
-  const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN;
+  const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN || user.organizationRole === OrganizationRole.OWNER;
   const isTeamLead = user.organizationRole === OrganizationRole.TEAM_LEAD && team.teamLeadId === user.userId;
   if (!isOrgAdmin && !isTeamLead) {
     throw new Error("You don't have permission to remove members from this team");
@@ -5708,7 +5679,7 @@ import { Router as Router8 } from "express";
 // src/app/module/label/label.service.ts
 var LabelService = class {
   static async createLabel(organizationId, payload, user) {
-    if (user.organizationRole !== OrganizationRole.ORG_ADMIN && user.organizationRole !== OrganizationRole.PROJECT_MANAGER) {
+    if (user.organizationRole !== OrganizationRole.ORG_ADMIN && user.organizationRole !== OrganizationRole.OWNER && user.organizationRole !== OrganizationRole.PROJECT_MANAGER) {
       throw new Error("Only admins and project managers can create labels");
     }
     const existingLabel = await prisma.label.findUnique({
@@ -5731,7 +5702,7 @@ var LabelService = class {
     });
   }
   static async updateLabel(organizationId, labelId, payload, user) {
-    if (user.organizationRole !== OrganizationRole.ORG_ADMIN && user.organizationRole !== OrganizationRole.PROJECT_MANAGER) {
+    if (user.organizationRole !== OrganizationRole.ORG_ADMIN && user.organizationRole !== OrganizationRole.OWNER && user.organizationRole !== OrganizationRole.PROJECT_MANAGER) {
       throw new Error("Only admins and project managers can update labels");
     }
     const label = await prisma.label.findUnique({
@@ -5752,7 +5723,7 @@ var LabelService = class {
     });
   }
   static async deleteLabel(organizationId, labelId, user) {
-    if (user.organizationRole !== OrganizationRole.ORG_ADMIN && user.organizationRole !== OrganizationRole.PROJECT_MANAGER) {
+    if (user.organizationRole !== OrganizationRole.ORG_ADMIN && user.organizationRole !== OrganizationRole.OWNER && user.organizationRole !== OrganizationRole.PROJECT_MANAGER) {
       throw new Error("Only admins and project managers can delete labels");
     }
     const label = await prisma.label.findUnique({
@@ -5776,7 +5747,7 @@ var LabelService = class {
     if (task.project.organizationId !== organizationId) {
       throw new Error("Task does not belong to this organization");
     }
-    const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN;
+    const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN || user.organizationRole === OrganizationRole.OWNER;
     let isProjectManager = false;
     if (user.organizationRole === OrganizationRole.PROJECT_MANAGER) {
       const membership = await prisma.projectMember.findUnique({
@@ -5811,7 +5782,7 @@ var LabelService = class {
     if (task.project.organizationId !== organizationId) {
       throw new Error("Task does not belong to this organization");
     }
-    const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN;
+    const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN || user.organizationRole === OrganizationRole.OWNER;
     let isProjectManager = false;
     if (user.organizationRole === OrganizationRole.PROJECT_MANAGER) {
       const membership = await prisma.projectMember.findUnique({

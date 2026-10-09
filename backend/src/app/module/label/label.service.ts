@@ -5,7 +5,7 @@ import { ICreateLabelPayload, IUpdateLabelPayload, IAssignLabelPayload } from ".
 
 export class LabelService {
   static async createLabel(organizationId: string, payload: ICreateLabelPayload, user: RequestUser) {
-    if (user.organizationRole !== OrganizationRole.ORG_ADMIN && user.organizationRole !== OrganizationRole.PROJECT_MANAGER) {
+    if (user.organizationRole !== OrganizationRole.ORG_ADMIN && user.organizationRole !== OrganizationRole.OWNER && user.organizationRole !== OrganizationRole.PROJECT_MANAGER) {
       throw new Error("Only admins and project managers can create labels");
     }
 
@@ -33,7 +33,7 @@ export class LabelService {
   }
 
   static async updateLabel(organizationId: string, labelId: string, payload: IUpdateLabelPayload, user: RequestUser) {
-    if (user.organizationRole !== OrganizationRole.ORG_ADMIN && user.organizationRole !== OrganizationRole.PROJECT_MANAGER) {
+    if (user.organizationRole !== OrganizationRole.ORG_ADMIN && user.organizationRole !== OrganizationRole.OWNER && user.organizationRole !== OrganizationRole.PROJECT_MANAGER) {
       throw new Error("Only admins and project managers can update labels");
     }
 
@@ -59,7 +59,7 @@ export class LabelService {
   }
 
   static async deleteLabel(organizationId: string, labelId: string, user: RequestUser) {
-    if (user.organizationRole !== OrganizationRole.ORG_ADMIN && user.organizationRole !== OrganizationRole.PROJECT_MANAGER) {
+    if (user.organizationRole !== OrganizationRole.ORG_ADMIN && user.organizationRole !== OrganizationRole.OWNER && user.organizationRole !== OrganizationRole.PROJECT_MANAGER) {
       throw new Error("Only admins and project managers can delete labels");
     }
 
@@ -92,7 +92,7 @@ export class LabelService {
     }
 
     // Verify user can edit the task
-    const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN;
+    const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN || user.organizationRole === OrganizationRole.OWNER;
     
     let isProjectManager = false;
     if (user.organizationRole === OrganizationRole.PROJECT_MANAGER) {
@@ -137,7 +137,7 @@ export class LabelService {
     }
 
     // Verify user can edit the task
-    const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN;
+    const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN || user.organizationRole === OrganizationRole.OWNER;
     let isProjectManager = false;
     if (user.organizationRole === OrganizationRole.PROJECT_MANAGER) {
        const membership = await prisma.projectMember.findUnique({

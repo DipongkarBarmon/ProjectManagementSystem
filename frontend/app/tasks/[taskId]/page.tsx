@@ -6,7 +6,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { useWorkspaceStore } from "@/lib/store/workspace-store";
 import { useParams, useRouter } from "next/navigation";
-import { Loader2, ArrowLeft, Calendar, User, Clock, AlertCircle } from "lucide-react";
+import { useState } from "react";
+import { Loader2, ArrowLeft, Calendar, User, Clock, AlertCircle, Paperclip, Send, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -24,6 +25,33 @@ export default function TaskDetailPage() {
   });
 
   const task = taskRes?.data;
+  const [comment, setComment] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
+  const commentsQuery = useQuery({
+    queryKey: ["comments", activeOrganizationId, task?.projectId, taskId],
+    queryFn: () => api.comments.list(activeOrganizationId!, task.projectId, taskId as string),
+    enabled: !!activeOrganizationId && !!task?.projectId && !!taskId,
+  });
+  const attachmentsQuery = useQuery({
+    queryKey: ["attachments", activeOrganizationId, task?.projectId, taskId],
+    queryFn: () => api.attachments.list(activeOrganizationId!, task.projectId, taskId as string),
+    enabled: !!activeOrganizationId && !!task?.projectId && !!taskId,
+  });
+  const commentMutation = useMutation({
+    mutationFn: () => api.comments.create(activeOrganizationId!, task.projectId, taskId as string, comment.trim()),
+    onSuccess: () => { setComment(""); queryClient.invalidateQueries({ queryKey: ["comments", activeOrganizationId, task?.projectId, taskId] }); },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const uploadMutation = useMutation({
+    mutationFn: () => api.attachments.upload(activeOrganizationId!, task.projectId, taskId as string, selectedFiles!),
+    onSuccess: () => { setSelectedFiles(null); queryClient.invalidateQueries({ queryKey: ["attachments", activeOrganizationId, task?.projectId, taskId] }); toast.success("Files uploaded"); },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const deleteAttachmentMutation = useMutation({
+    mutationFn: (attachmentId: string) => api.attachments.delete(activeOrganizationId!, task.projectId, attachmentId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["attachments", activeOrganizationId, task?.projectId, taskId] }),
+    onError: (error: Error) => toast.error(error.message),
+  });
 
   const updateStatusMutation = useMutation({
     mutationFn: (newStatus: string) => 
@@ -109,17 +137,34 @@ export default function TaskDetailPage() {
               )}
             </div>
 
-            {/* Comments placeholder */}
             <div className="pt-8 border-t">
               <h3 className="text-lg font-semibold mb-4">Comments</h3>
-              <div className="rounded-xl border bg-card p-4 text-center text-sm text-muted-foreground">
-                Comments are coming soon.
+              <form onSubmit={(event) => { event.preventDefault(); if (comment.trim()) commentMutation.mutate(); }} className="mb-4 flex gap-2">
+                <textarea value={comment} onChange={(event) => setComment(event.target.value)} rows={2} placeholder="Write a comment..." className="min-w-0 flex-1 resize-y rounded-lg border bg-background px-3 py-2 text-sm" />
+                <button disabled={commentMutation.isPending || !comment.trim()} className="self-end rounded-lg bg-primary p-2 text-primary-foreground disabled:opacity-50" aria-label="Add comment"><Send size={16} /></button>
+              </form>
+              <div className="space-y-3">
+                {(commentsQuery.data?.data || []).map((item: any) => (
+                  <div key={item.id} className="rounded-xl border bg-card p-4">
+                    <div className="flex justify-between text-xs text-muted-foreground"><span className="font-medium text-foreground">{item.user?.name || item.author?.name || "Member"}</span><span>{item.createdAt ? format(new Date(item.createdAt), "MMM d, yyyy h:mm a") : ""}</span></div>
+                    <p className="mt-2 whitespace-pre-wrap text-sm">{item.content}</p>
+                  </div>
+                ))}
+                {!commentsQuery.isLoading && !(commentsQuery.data?.data || []).length && <p className="rounded-xl border p-4 text-center text-sm text-muted-foreground">No comments yet.</p>}
               </div>
             </div>
           </div>
 
           {/* Sidebar */}
           <div className="w-full lg:w-80 space-y-6">
+            <div className="rounded-xl border bg-card p-5">
+              <h3 className="mb-3 flex items-center gap-2 font-semibold"><Paperclip size={16} /> Attachments</h3>
+              <input type="file" name="files" multiple onChange={(event) => setSelectedFiles(event.target.files)} className="w-full text-xs" />
+              <button onClick={() => selectedFiles && uploadMutation.mutate()} disabled={!selectedFiles?.length || uploadMutation.isPending} className="mt-3 w-full rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50">{uploadMutation.isPending ? "Uploading..." : "Upload files"}</button>
+              <div className="mt-3 space-y-2">
+                {(attachmentsQuery.data?.data || []).map((file: any) => <div key={file.id} className="flex items-center justify-between gap-2 text-xs"><a href={file.url} target="_blank" rel="noreferrer" className="truncate text-primary hover:underline">{file.originalName || file.fileName || "Attachment"}</a><button onClick={() => deleteAttachmentMutation.mutate(file.id)} className="text-red-600" aria-label="Delete attachment"><Trash2 size={14} /></button></div>)}
+              </div>
+            </div>
             <div className="rounded-xl border bg-card p-5">
               <h3 className="font-semibold mb-4">Details</h3>
               

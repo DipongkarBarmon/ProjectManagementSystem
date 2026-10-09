@@ -82,21 +82,17 @@ const updateProject = catchAsync(async(req : Request,res : Response,next : NextF
     })
 })
 
-const deleteProject = catchAsync(async(
-    req : Request,
-    res : Response,
-    next : NextFunction
-) => {
-    const organizationId = req.params.organizationId
-    const projectId = req.params.projectId
-    const userId = req.user?.userId
-
-    const result = await ProjectService.deleteProject(organizationId as string, projectId as string, userId as string)
+const permanentlyDeleteProject = catchAsync(async(req: Request, res: Response) => {
+    const result = await ProjectService.permanentlyDeleteProject(
+        req.params.organizationId as string,
+        req.params.projectId as string,
+        req.user?.userId as string
+    )
 
     sendResponse(res, {
         success: true,
         statusCode: httpStatus.OK,
-        message: "Project deleted successfully!",
+        message: "Project permanently deleted!",
         data: result
     })
 })
@@ -166,7 +162,7 @@ export const ProjectController = {
    getAllProjects,
     getProject,
      updateProject,
-      deleteProject, 
+      permanentlyDeleteProject,
       assignProjectManager,
        addMember,
         removeMember, 

@@ -27,7 +27,7 @@ const projectMemberSchema = z.object({
 	}),
 })
 const GetAllOrganizationProjectsZodSchema = z.object({
-   body : z.object({
+   query : z.object({
       searchTerm : z.string().optional(),
       page : z.string().optional(),
       limit : z.string().optional(),
@@ -39,6 +39,7 @@ const GetAllOrganizationProjectsZodSchema = z.object({
       startDate : z.string().optional(),
       endDate : z.string().optional(),
 			organizationId : z.string().uuid("Invalid organization ID format").optional(),
+      status: z.enum(ProjectStatus).optional(),
    }).optional()
 })
 

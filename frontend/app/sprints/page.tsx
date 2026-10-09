@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { Filter, MoreHorizontal, Plus, Search, Loader2 } from "lucide-react";
+import { Filter, MoreHorizontal, Plus, Search, Loader2, Pencil, Trash2, CheckCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -16,6 +16,7 @@ export default function SprintsPage() {
   const [filter, setFilter] = useState("All");
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingSprint, setEditingSprint] = useState<any>(null);
   const [form, setForm] = useState({ name: "", goal: "", startDate: "", endDate: "" });
   const queryClient = useQueryClient();
 
@@ -65,6 +66,34 @@ export default function SprintsPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const editMutation = useMutation({
+    mutationFn: () => api.sprints.update(activeOrganizationId!, selectedProjectId, editingSprint.id, {
+      name: form.name.trim(),
+      goal: form.goal.trim() || undefined,
+      startDate: form.startDate ? new Date(form.startDate).toISOString() : undefined,
+      endDate: form.endDate ? new Date(form.endDate).toISOString() : undefined,
+    }),
+    onSuccess: () => {
+      toast.success("Sprint updated");
+      setEditingSprint(null);
+      setIsCreateOpen(false);
+      setForm({ name: "", goal: "", startDate: "", endDate: "" });
+      queryClient.invalidateQueries({ queryKey: ["sprints", activeOrganizationId, selectedProjectId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const openEdit = (sprint: any) => {
+    setEditingSprint(sprint);
+    setForm({ 
+      name: sprint.name || "", 
+      goal: sprint.goal || "", 
+      startDate: sprint.startDate ? sprint.startDate.split('T')[0] : "", 
+      endDate: sprint.endDate ? sprint.endDate.split('T')[0] : "" 
+    });
+    setIsCreateOpen(true);
+  };
+
   const updateMutation = useMutation({
     mutationFn: (sprintId: string) => api.sprints.complete(activeOrganizationId!, selectedProjectId, sprintId),
     onSuccess: () => {
@@ -102,16 +131,24 @@ export default function SprintsPage() {
         </div>
 
         {isCreateOpen && (
-          <form onSubmit={(event) => { event.preventDefault(); createMutation.mutate(); }} className="mt-6 rounded-xl border bg-card p-5">
+          <form onSubmit={(event) => { event.preventDefault(); editingSprint ? editMutation.mutate() : createMutation.mutate(); }} className="mt-6 rounded-xl border bg-card p-5">
             <div className="grid gap-3 sm:grid-cols-2">
-              <input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Sprint name" className="rounded-lg border bg-background px-3 py-2 text-sm" />
-              <input value={form.goal} onChange={(event) => setForm({ ...form, goal: event.target.value })} placeholder="Sprint goal" className="rounded-lg border bg-background px-3 py-2 text-sm" />
-              <input type="date" value={form.startDate} onChange={(event) => setForm({ ...form, startDate: event.target.value })} className="rounded-lg border bg-background px-3 py-2 text-sm" />
-              <input type="date" value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} className="rounded-lg border bg-background px-3 py-2 text-sm" />
+              <label className="grid gap-1 text-xs font-medium text-muted-foreground">Sprint name
+                <input name="name" required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Sprint name" className="rounded-lg border bg-background px-3 py-2 text-sm text-foreground" />
+              </label>
+              <label className="grid gap-1 text-xs font-medium text-muted-foreground">Sprint goal
+                <textarea name="goal" value={form.goal} onChange={(event) => setForm({ ...form, goal: event.target.value })} placeholder="Sprint goal" rows={2} className="resize-y rounded-lg border bg-background px-3 py-2 text-sm text-foreground" />
+              </label>
+              <label className="grid gap-1 text-xs font-medium text-muted-foreground">Start date
+                <input name="startDate" type="date" value={form.startDate} onChange={(event) => setForm({ ...form, startDate: event.target.value })} className="rounded-lg border bg-background px-3 py-2 text-sm text-foreground" />
+              </label>
+              <label className="grid gap-1 text-xs font-medium text-muted-foreground">End date
+                <input name="endDate" type="date" value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} className="rounded-lg border bg-background px-3 py-2 text-sm text-foreground" />
+              </label>
             </div>
             <div className="mt-4 flex justify-end gap-2">
-              <button type="button" onClick={() => setIsCreateOpen(false)} className="rounded-lg border px-3 py-2 text-sm">Cancel</button>
-              <button disabled={createMutation.isPending} className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">{createMutation.isPending ? "Creating..." : "Create sprint"}</button>
+              <button type="button" onClick={() => { setIsCreateOpen(false); setEditingSprint(null); setForm({ name: "", goal: "", startDate: "", endDate: "" }); }} className="rounded-lg border px-3 py-2 text-sm">Cancel</button>
+              <button disabled={createMutation.isPending || editMutation.isPending} className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">{editingSprint ? (editMutation.isPending ? "Updating..." : "Update sprint") : (createMutation.isPending ? "Creating..." : "Create sprint")}</button>
             </div>
           </form>
         )}
@@ -205,13 +242,12 @@ export default function SprintsPage() {
                         {format(new Date(row.createdAt), 'MMM d, yyyy')}
                       </td>
                       <td className="px-5 py-4 text-right">
-                        <div className="flex justify-end gap-1">
+                        <div className="flex items-center justify-end gap-2">
+                          <button onClick={() => openEdit(row)} className="inline-flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-medium hover:bg-muted"><Pencil size={13} /> Edit</button>
                           {row.status !== "COMPLETED" && (
-                            <button onClick={() => updateMutation.mutate(row.id)} className="rounded-md px-2 py-1 text-[11px] text-primary hover:bg-muted">Complete</button>
+                            <button onClick={() => updateMutation.mutate(row.id)} disabled={updateMutation.isPending} className="inline-flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-medium hover:bg-muted"><CheckCircle size={13} /> Complete</button>
                           )}
-                          <button onClick={() => { if (window.confirm(`Delete ${row.name}?`)) deleteMutation.mutate(row.id); }} className="rounded-md p-1.5 text-red-600 hover:bg-red-50" aria-label={`Delete ${row.name}`}>
-                            <MoreHorizontal size={16} />
-                          </button>
+                          <button onClick={() => { if (window.confirm(`Delete ${row.name} permanently? This cannot be undone.`)) deleteMutation.mutate(row.id); }} disabled={deleteMutation.isPending} className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"><Trash2 size={13} /> Delete</button>
                         </div>
                       </td>
                     </tr>

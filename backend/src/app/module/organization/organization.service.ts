@@ -454,7 +454,7 @@ const getMembers = async (organizationId: string, query: any) => {
         take: limit,
         include: {
             user: {
-                select: { id: true, name: true, email: true, profilePicture: true, status: true }
+                select: { id: true, name: true, email: true, avatar: true, status: true, teamMembers: true }
             }
         },
         orderBy: { joinedAt: 'desc' }

@@ -28,4 +28,5 @@ export interface IProjectQuery {
     slug? : string,
 		startDate? : string,
 		endDate? : string,
+		status? : ProjectStatus,
 }

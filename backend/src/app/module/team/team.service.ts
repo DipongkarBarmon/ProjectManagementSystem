@@ -7,7 +7,7 @@ import { TeamWhereInput } from "../../../../generated/prisma/models";
 import { OrganizationBillingService } from "../organizationbilling/organizationbilling.service";
  
 const createTeam =async (payload: ICreateTeamPayload, user: RequestUser, organizationId: string) => {
-    if (user.organizationRole !== OrganizationRole.ORG_ADMIN) {
+    if (user.organizationRole !== OrganizationRole.ORG_ADMIN && user.organizationRole !== OrganizationRole.OWNER) {
       throw new Error("Only organization admins can create teams.");
     }
     
@@ -194,7 +194,7 @@ const getAllTeams = async (query: IGetAllTeamsPayload, user: RequestUser, organi
     }
 
     const isManagerOrAdmin = 
-      user.organizationRole === OrganizationRole.ORG_ADMIN || 
+      user.organizationRole === OrganizationRole.ORG_ADMIN || user.organizationRole === OrganizationRole.OWNER ||
       user.organizationRole === OrganizationRole.PROJECT_MANAGER;
 
     if (!isManagerOrAdmin) {
@@ -216,7 +216,7 @@ const getAllTeams = async (query: IGetAllTeamsPayload, user: RequestUser, organi
       throw new Error("Team not found");
     }
     
-    const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN;
+    const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN || user.organizationRole === OrganizationRole.OWNER;
     const isTeamLead = user.organizationRole === OrganizationRole.TEAM_LEAD && team.teamLeadId === user.userId;   
     
     if (!isOrgAdmin && !isTeamLead) { 
@@ -241,7 +241,7 @@ const getAllTeams = async (query: IGetAllTeamsPayload, user: RequestUser, organi
     return updatedTeam;
   }           
  const deleteTeam = async (teamId: string, user: RequestUser, organizationId: string) => {
-    if (user.organizationRole !== OrganizationRole.ORG_ADMIN) {
+    if (user.organizationRole !== OrganizationRole.ORG_ADMIN && user.organizationRole !== OrganizationRole.OWNER) {
       throw new Error("Only organization admins can delete teams.");
     }
 
@@ -268,7 +268,7 @@ const getAllTeams = async (query: IGetAllTeamsPayload, user: RequestUser, organi
   }         
    
   const assignTeamLead = async (teamId: string, payload: IAssignTeamLeadPayload, user: RequestUser, organizationId: string) => {
-    if (user.organizationRole !== OrganizationRole.ORG_ADMIN) {
+    if (user.organizationRole !== OrganizationRole.ORG_ADMIN && user.organizationRole !== OrganizationRole.OWNER) {
       throw new Error("Only organization admins can assign team leads.");
     }
     
@@ -339,7 +339,7 @@ const getAllTeams = async (query: IGetAllTeamsPayload, user: RequestUser, organi
 
     if (!team) throw new Error("Team not found");
 
-    const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN;
+    const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN || user.organizationRole === OrganizationRole.OWNER;
     const isTeamLead = user.organizationRole === OrganizationRole.TEAM_LEAD && team.teamLeadId === user.userId;
 
     if (!isOrgAdmin && !isTeamLead) {
@@ -400,7 +400,7 @@ const getAllTeams = async (query: IGetAllTeamsPayload, user: RequestUser, organi
 
     if (!team) throw new Error("Team not found");
 
-    const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN;
+    const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN || user.organizationRole === OrganizationRole.OWNER;
     const isTeamLead = user.organizationRole === OrganizationRole.TEAM_LEAD && team.teamLeadId === user.userId;
 
     if (!isOrgAdmin && !isTeamLead) {

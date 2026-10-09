@@ -9,6 +9,8 @@ import { ReactNode, useState, useEffect, useRef, useCallback } from "react";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useWorkspaceStore } from "@/lib/store/workspace-store";
 import { api } from "@/lib/api-client";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { UpgradeModal } from "./upgrade-modal";
 
 const navigation = [
@@ -34,6 +36,7 @@ export function WorkspaceShell({ children, title }: { children: ReactNode; title
   const [open, setOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -80,6 +83,17 @@ export function WorkspaceShell({ children, title }: { children: ReactNode; title
 
   const { user, logout: storeLogout } = useAuthStore();
   const { activeOrganizationId, organizations, setActiveOrganizationId } = useWorkspaceStore();
+  const queryClient = useQueryClient();
+  const notificationsQuery = useQuery({
+    queryKey: ["notifications", activeOrganizationId],
+    queryFn: () => api.notifications.list(activeOrganizationId!),
+    enabled: !!activeOrganizationId,
+  });
+  const markAllReadMutation = useMutation({
+    mutationFn: () => api.notifications.markAllRead(activeOrganizationId!),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications", activeOrganizationId] }),
+    onError: (error: Error) => toast.error(error.message),
+  });
   const [isOrganizationOpen, setIsOrganizationOpen] = useState(false);
   const activeOrganization = organizations.find((organization) => organization.id === activeOrganizationId);
   const isOrganizationAdmin = activeOrganization?.myRole === "OWNER" || activeOrganization?.myRole === "ORG_ADMIN";
@@ -246,9 +260,18 @@ export function WorkspaceShell({ children, title }: { children: ReactNode; title
               <span>Workspace</span><span>/</span><span className="font-medium text-foreground">{title}</span>
             </div>
             <div className="ml-auto flex items-center gap-2">
-              <button className="relative flex size-9 items-center justify-center rounded-lg border bg-card text-muted-foreground hover:text-foreground" aria-label="Notifications">
+              <button onClick={() => setIsNotificationsOpen((value) => !value)} className="relative flex size-9 items-center justify-center rounded-lg border bg-card text-muted-foreground hover:text-foreground" aria-label="Notifications">
                 <Bell size={17} /><span className="absolute right-2 top-2 size-1.5 rounded-full bg-blue-600" />
               </button>
+              {isNotificationsOpen && (
+                <div className="absolute right-20 top-14 z-50 w-80 rounded-xl border bg-card p-3 shadow-xl">
+                  <div className="flex items-center justify-between border-b pb-2"><h3 className="text-sm font-semibold">Notifications</h3><button onClick={() => markAllReadMutation.mutate()} className="text-xs text-primary hover:underline">Mark all read</button></div>
+                  <div className="max-h-80 space-y-1 overflow-auto pt-2">
+                    {(notificationsQuery.data?.data || []).map((notification: any) => <div key={notification.id} className={`rounded-lg p-2 text-xs ${notification.isRead ? "text-muted-foreground" : "bg-blue-50 dark:bg-blue-950/30"}`}><p className="font-medium text-foreground">{notification.title || notification.type || "Notification"}</p><p className="mt-1">{notification.message || notification.description}</p></div>)}
+                    {!notificationsQuery.isLoading && !(notificationsQuery.data?.data || []).length && <p className="p-4 text-center text-xs text-muted-foreground">You are all caught up.</p>}
+                  </div>
+                </div>
+              )}
               <button onClick={() => setTheme(dark ? "light" : "dark")} className="flex size-9 items-center justify-center rounded-lg border bg-card text-muted-foreground hover:text-foreground" aria-label="Toggle theme">
                 {mounted ? (dark ? <Sun size={17} /> : <Moon size={17} />) : <span className="size-[17px]" />}
               </button>

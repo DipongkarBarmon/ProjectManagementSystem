@@ -15,7 +15,7 @@ router.get("/:organizationId/projects/:projectId", auth({permissions:[Permission
 
 router.patch("/:organizationId/projects/:projectId", auth({permissions:[Permissions.PROJECT_UPDATE]}), validationRequest(ProjectValidation.updateProjectSchema), ProjectController.updateProject)
 
-router.delete("/:organizationId/projects/:projectId", auth({permissions:[Permissions.PROJECT_ARCHIVE]}), ProjectController.deleteProject)
+router.delete("/:organizationId/projects/:projectId", auth({permissions:[Permissions.PROJECT_ARCHIVE]}), ProjectController.permanentlyDeleteProject)
 
 
 router.patch("/:organizationId/projects/:projectId/manager", auth({permissions:[Permissions.PROJECT_UPDATE]}), validationRequest(ProjectValidation.assignProjectManagerSchema), ProjectController.assignProjectManager)

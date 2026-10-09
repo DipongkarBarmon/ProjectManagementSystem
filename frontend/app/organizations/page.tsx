@@ -255,10 +255,10 @@ export default function OrganizationsPage() {
                   <button onClick={() => setEditing(false)} className="rounded-md p-2 text-muted-foreground hover:bg-muted" aria-label="Cancel"><X size={18} /></button>
                 </div>
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                  <label className="text-sm font-medium">Name<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="mt-2 h-10 w-full rounded-lg border bg-background px-3 font-normal outline-none focus:ring-2 focus:ring-primary/30" placeholder="Acme Software" /></label>
-                  <label className="text-sm font-medium">Slug<input value={form.slug} onChange={(event) => setForm({ ...form, slug: event.target.value })} className="mt-2 h-10 w-full rounded-lg border bg-background px-3 font-normal outline-none focus:ring-2 focus:ring-primary/30" placeholder="acme-software" /></label>
-                  <label className="text-sm font-medium sm:col-span-2">Description<textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} className="mt-2 min-h-24 w-full rounded-lg border bg-background p-3 font-normal outline-none focus:ring-2 focus:ring-primary/30" placeholder="What does this workspace manage?" /></label>
-                  <label className="text-sm font-medium sm:col-span-2">Logo<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setLogo(event.target.files?.[0] ?? null)} className="mt-2 block w-full rounded-lg border bg-background p-2 text-sm font-normal" /></label>
+                  <label className="text-sm font-medium">Name<input name="name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="mt-2 h-10 w-full rounded-lg border bg-background px-3 font-normal outline-none focus:ring-2 focus:ring-primary/30" placeholder="Acme Software" /></label>
+                  <label className="text-sm font-medium">Slug<input name="slug" value={form.slug} onChange={(event) => setForm({ ...form, slug: event.target.value })} className="mt-2 h-10 w-full rounded-lg border bg-background px-3 font-normal outline-none focus:ring-2 focus:ring-primary/30" placeholder="acme-software" /></label>
+                  <label className="text-sm font-medium sm:col-span-2">Description<textarea name="description" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} className="mt-2 min-h-24 w-full rounded-lg border bg-background p-3 font-normal outline-none focus:ring-2 focus:ring-primary/30" placeholder="What does this workspace manage?" /></label>
+                  <label className="text-sm font-medium sm:col-span-2">Logo<input name="logo" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setLogo(event.target.files?.[0] ?? null)} className="mt-2 block w-full rounded-lg border bg-background p-2 text-sm font-normal" /></label>
                 </div>
                 <div className="mt-5 flex justify-end gap-2">
                   <button onClick={() => setEditing(false)} className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</button>
@@ -279,7 +279,7 @@ export default function OrganizationsPage() {
                     </div>
                   </div>
                   <div className="mt-6 flex flex-wrap items-center gap-3 border-t pt-5">
-                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium hover:bg-muted"><ImagePlus size={15} /> Choose logo<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => setLogo(event.target.files?.[0] ?? null)} /></label>
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium hover:bg-muted"><ImagePlus size={15} /> Choose logo<input name="logo" type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => setLogo(event.target.files?.[0] ?? null)} /></label>
                     {logo && <><span className="text-sm text-muted-foreground">{logo.name}</span><button onClick={updateLogo} disabled={saving} className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60">{saving ? "Uploading..." : "Upload logo"}</button></>}
                   </div>
                 </section>
