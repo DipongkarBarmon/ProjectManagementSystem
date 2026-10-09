@@ -3,6 +3,7 @@ import { catchAsync } from "../../utils/catchAsync";
 import { sendResponse } from "../../utils/sendResponse";
 import { AdminBillingService } from "./adminbilling.service";
 import httpStatus from "http-status";
+import config from "../../config";
 
 const getPlans = catchAsync(async (req: Request, res: Response) => {
   const result = await AdminBillingService.getPlans();
@@ -44,12 +45,18 @@ const getAllPayments = catchAsync(async (req: Request, res: Response) => {
 const bkashCallback = catchAsync(async (req: Request, res: Response) => {
   const { paymentID, status } = req.query;
   const result = await AdminBillingService.executeBkashCallback(paymentID as string, status as string);
-  // Assuming frontend URL in config
-  if (result.success) {
-    sendResponse(res, { success: true, statusCode: httpStatus.OK, message: result.message, data: result });
-  } else {
-    sendResponse(res, { success: false, statusCode: httpStatus.BAD_REQUEST, message: result.message, data: result });
-  }
+  const destination = result.success
+    ? "payment/success"
+    : result.outcome === "cancelled"
+      ? "payment/cancelled"
+      : "payment/failed";
+  const query = new URLSearchParams({
+    paymentID: paymentID as string,
+    message: result.message,
+  });
+  if (result.success) query.set("plan", result.planName || "Pro");
+
+  res.redirect(`${config.frontend_url}/${destination}?${query.toString()}`);
 });
 
 export const AdminBillingController = {

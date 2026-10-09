@@ -63,7 +63,11 @@ export class AdminBillingService {
         where: { transactionId: paymentID },
         data: { status: PaymentStatus.FAILED, failureReason: "User cancelled or failed" }
       });
-      return { success: false, message: "Payment cancelled or failed" };
+      return {
+        success: false,
+        outcome: status === "failure" ? "failed" : "cancelled",
+        message: status === "failure" ? "Your payment could not be completed." : "Payment was cancelled.",
+      };
     }
 
     if (status === 'success') {
@@ -126,9 +130,17 @@ export class AdminBillingService {
         }
       });
 
-      return { success: true, message: "Payment successful" };
+      const updatedPlan = planId
+        ? await prisma.plan.findUnique({ where: { id: planId }, select: { name: true } })
+        : null;
+
+      return {
+        success: true,
+        planName: updatedPlan?.name || "Pro",
+        message: "Payment successful",
+      };
     }
 
-    return { success: false, message: "Unknown status" };
+    return { success: false, outcome: "failed", message: "Payment could not be verified." };
   }
 }

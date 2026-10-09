@@ -84,11 +84,10 @@ export default function InvitationsPage() {
               <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_180px_auto]">
                 <input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="teammate@example.com" className="h-10 rounded-lg border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30" />
                 <select value={role} onChange={(event) => setRole(event.target.value)} className="h-10 rounded-lg border bg-background px-3 text-sm">
-                  <option value="MEMBER">Member</option>
-                  <option value="TEAM_LEAD">Team lead</option>
+                  <option value="ORG_ADMIN">Organization member</option>
                   <option value="PROJECT_MANAGER">Project manager</option>
-                  <option value="ORG_ADMIN">Organization admin</option>
-                  <option value="GUEST">Guest</option>
+                  <option value="TEAM_LEAD">Team leader</option>
+                  <option value="MEMBER">Member</option>
                 </select>
                 <button disabled={sending} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"><Send size={15} /> {sending ? "Sending..." : "Send invite"}</button>
               </div>

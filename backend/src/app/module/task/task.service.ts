@@ -1,6 +1,6 @@
 import { prisma } from "../../lib/prisma";
 import { RequestUser } from "../../middleware/checkAuth";
-import { OrganizationRole, ActivityAction } from "../../../../generated/prisma/enums";
+import { OrganizationRole, ActivityAction, NotificationType } from "../../../../generated/prisma/enums";
 import { ActivityService } from "../activity/activity.service";
 import { NotificationService } from "../notification/notification.service";
 import { ICreateTaskPayload, IUpdateTaskPayload } from "./task.interface";
@@ -95,9 +95,12 @@ export class TaskService {
       await NotificationService.createNotification({
         userId: payload.assigneeId,
         organizationId,
+        type: NotificationType.TASK_ASSIGNED,
         title: "New Task Assigned",
-        content: `You have been assigned to task: ${task.title}`,
-        link: `/projects/${projectId}/tasks/${task.id}`
+        message: `You have been assigned to task: ${task.title}`,
+        entityType: "TASK",
+        entityId: task.id,
+        metadata: { projectId },
       });
     }
 
@@ -302,9 +305,12 @@ export class TaskService {
         await NotificationService.createNotification({
           userId: payload.assigneeId,
           organizationId,
+          type: NotificationType.TASK_ASSIGNED,
           title: "Task Assigned",
-          content: `You have been assigned to task: ${task.title}`,
-          link: `/projects/${projectId}/tasks/${task.id}`
+          message: `You have been assigned to task: ${task.title}`,
+          entityType: "TASK",
+          entityId: task.id,
+          metadata: { projectId },
         });
       }
     }

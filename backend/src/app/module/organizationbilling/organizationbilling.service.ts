@@ -147,7 +147,7 @@ export class OrganizationBillingService {
     await redisClient.setEx(
       `bkash_intent:${bkashPayment.paymentID}`,
       3600,
-      JSON.stringify({ planId: payload.planId, interval: payload.interval })
+      JSON.stringify({ organizationId, planId: payload.planId, interval: payload.interval })
     );
 
     await ActivityService.createActivity({

@@ -29,6 +29,7 @@ export default function SettingsPage() {
 
   const activeOrg = organizations.find((o:any) => o.id === activeOrganizationId);
   const isOrgAdmin = activeOrg?.myRole === 'OWNER' || activeOrg?.myRole === 'ORG_ADMIN';
+  const planName = activeOrg?.subscription?.plan?.name || "Free";
 
   return (
     <WorkspaceShell title="Settings">
@@ -125,11 +126,11 @@ export default function SettingsPage() {
                 ) : (
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <p className="font-semibold text-primary">Free Plan</p>
-                      <p className="text-sm text-muted-foreground mt-1">You are currently on the free tier.</p>
+                      <p className="font-semibold text-primary">{planName} Plan</p>
+                      <p className="text-sm text-muted-foreground mt-1">You are currently on the {planName.toLowerCase()} tier.</p>
                     </div>
                     <button className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-slate-900">
-                      Upgrade Plan
+                      {planName.toUpperCase() === "FREE" ? "Upgrade Plan" : "Change Plan"}
                     </button>
                   </div>
                 )}

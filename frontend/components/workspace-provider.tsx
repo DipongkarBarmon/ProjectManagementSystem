@@ -34,7 +34,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
             id: org.organization?.id || org.id,
             name: org.organization?.name || org.name,
             logo: org.organization?.logo || org.logo,
-            myRole: org.role || org.members?.[0]?.organizationRole || "MEMBER"
+            myRole: org.role || org.currentUserRole || org.members?.[0]?.organizationRole || "MEMBER",
+            subscription: org.organization?.subscription || org.subscription || null,
           }));
 
           setOrganizations(mappedOrgs);

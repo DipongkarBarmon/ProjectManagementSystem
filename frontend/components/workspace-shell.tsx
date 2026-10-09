@@ -37,6 +37,7 @@ export function WorkspaceShell({ children, title }: { children: ReactNode; title
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isHeaderProfileOpen, setIsHeaderProfileOpen] = useState(false);
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
@@ -204,7 +205,7 @@ export function WorkspaceShell({ children, title }: { children: ReactNode; title
               </div>
             )}
           </div>
-          <nav className="mt-8 space-y-1" aria-label="Workspace navigation">
+          <nav className="mt-8 min-h-0 flex-1 space-y-1 overflow-y-auto pr-1" aria-label="Workspace navigation">
             <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Workspace</p>
             {navItems(navigation)}
             <p className="mb-2 mt-8 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Manage</p>
@@ -212,7 +213,7 @@ export function WorkspaceShell({ children, title }: { children: ReactNode; title
               (item.href !== "/organizations" && item.href !== "/invitations") || isOrganizationAdmin
             ))}
           </nav>
-          <div className="relative mt-auto border-t pt-4">
+          <div className="relative mt-auto shrink-0 border-t pt-4">
             
             {/* Profile Popover */}
             {isProfileOpen && (
@@ -242,7 +243,9 @@ export function WorkspaceShell({ children, title }: { children: ReactNode; title
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[13px] font-semibold leading-tight">{user?.name || "User"}</span>
-                  <span className="block truncate text-[11px] text-muted-foreground mt-0.5">Free</span>
+                <span className="block truncate text-[11px] text-muted-foreground mt-0.5">
+                  {activeOrganization?.subscription?.plan?.name || "Free"}
+                </span>
                 </span>
               </button>
               <button 
@@ -277,13 +280,39 @@ export function WorkspaceShell({ children, title }: { children: ReactNode; title
               <button onClick={() => setTheme(dark ? "light" : "dark")} className="flex size-9 items-center justify-center rounded-lg border bg-card text-muted-foreground hover:text-foreground" aria-label="Toggle theme">
                 {mounted ? (dark ? <Sun size={17} /> : <Moon size={17} />) : <span className="size-[17px]" />}
               </button>
-              <button onClick={logout} className="hidden items-center gap-2 rounded-lg border bg-card px-2.5 py-1.5 text-xs font-semibold sm:flex" title="Log out">
+              <button
+                onClick={() => setIsHeaderProfileOpen((value) => !value)}
+                className="hidden items-center gap-2 rounded-lg border bg-card px-2.5 py-1.5 text-xs font-semibold sm:flex"
+                title="Open profile menu"
+                aria-expanded={isHeaderProfileOpen}
+              >
                 <span className="flex size-6 items-center justify-center rounded-full bg-amber-100 text-[9px] font-bold text-amber-700">
                   {getInitials(user?.name)}
                 </span>
                 <span className="truncate max-w-[100px]">{user?.name?.split(" ")[0] || "User"}</span>
-                <LogOut size={14} className="text-muted-foreground" />
+                <ChevronDown size={14} className="text-muted-foreground" />
               </button>
+              {isHeaderProfileOpen && (
+                <div className="absolute right-5 top-14 z-50 w-60 rounded-xl border bg-card p-1.5 shadow-xl sm:right-8">
+                  <div className="px-2.5 py-2 text-xs text-muted-foreground">
+                    Signed in as <span className="font-semibold text-foreground">{user?.email || user?.name || "User"}</span>
+                  </div>
+                  <div className="my-1 h-px bg-border" />
+                  <Link
+                    href="/settings"
+                    onClick={() => setIsHeaderProfileOpen(false)}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-muted"
+                  >
+                    <Settings size={15} /> Settings
+                  </Link>
+                  <button
+                    onClick={logout}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                  >
+                    <LogOut size={15} /> Log out
+                  </button>
+                </div>
+              )}
             </div>
           </header>
           {children}

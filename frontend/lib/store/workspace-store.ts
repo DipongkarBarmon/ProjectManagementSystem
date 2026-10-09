@@ -7,6 +7,11 @@ export interface Organization {
   name: string;
   logo?: string;
   myRole: string; // The user's role in this org
+  subscription?: {
+    plan?: {
+      name?: string;
+    } | null;
+  } | null;
 }
 
 interface WorkspaceState {

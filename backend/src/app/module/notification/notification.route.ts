@@ -1,12 +1,10 @@
 import { Router } from "express";
 import { NotificationController } from "./notification.controller";
 import { auth } from "../../middleware/checkAuth";
-import { Permissions } from "../../config/permissions";
 import { validationRequest } from "../../middleware/validationRequest";
 import { markReadSchema } from "./notification.validation";
 
 const router = Router({ mergeParams: true });
-
 
 router.get("/", auth(), NotificationController.getMyNotifications);
 router.patch("/read", auth(), validationRequest(markReadSchema), NotificationController.markAsRead);
