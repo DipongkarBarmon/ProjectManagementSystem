@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ArrowRight, CheckCircle2, FolderKanban, ListTodo, PlayCircle, Users, Zap } from "lucide-react";
 import Link from "next/link";
 

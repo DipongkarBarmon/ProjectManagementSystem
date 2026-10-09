@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { Filter, MoreHorizontal, Search, Loader2, ShieldOff, ShieldAlert, Trash2 } from "lucide-react";
@@ -164,10 +165,10 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="px-5 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <button onClick={() => handleBlock(row)} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-amber-600" title={row.status === 'BLOCKED' ? "Unblock user" : "Block user"}>
+                          <button onClick={() => handleBlock(row)} disabled={blockMutation.isPending} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-amber-600 disabled:opacity-50 disabled:pointer-events-none" title={row.status === 'BLOCKED' ? "Unblock user" : "Block user"}>
                             {row.status === 'BLOCKED' ? <ShieldAlert size={16} /> : <ShieldOff size={16} />}
                           </button>
-                          <button onClick={() => handleDelete(row)} className="rounded-md p-1.5 text-muted-foreground hover:bg-red-50 hover:text-red-600" title="Delete user">
+                          <button onClick={() => handleDelete(row)} disabled={deleteMutation.isPending} className="rounded-md p-1.5 text-muted-foreground hover:bg-red-50 hover:text-red-600 disabled:opacity-50 disabled:pointer-events-none" title="Delete user">
                             <Trash2 size={16} />
                           </button>
                         </div>

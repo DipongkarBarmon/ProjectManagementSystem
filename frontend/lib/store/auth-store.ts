@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from 'zustand';
 import { api } from '../api-client';
 
@@ -48,7 +49,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ isLoading: true });
       const res = await api.auth.me();
       if (res.success && res.data) {
-        set({ user: res.data, isAuthenticated: true });
+        // Backend might return { data: { user: { ... } } } or { data: { ... } }
+        const userData = res.data.user || res.data;
+        set({ user: userData, isAuthenticated: true });
       } else {
         set({ user: null, isAuthenticated: false });
       }

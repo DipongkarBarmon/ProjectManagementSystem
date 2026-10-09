@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { Filter, MoreHorizontal, Plus, Search, Loader2 } from "lucide-react";
@@ -104,7 +105,7 @@ export default function ProjectsPage() {
                     </td>
                   </tr>
                 ) : filteredProjects.map((row: any) => {
-                  const progress = row.progress || Math.floor(Math.random() * 100);
+                  const progress = row.progress || 0;
                   const statusLabel = row.status.replace(/_/g, ' ');
                   return (
                     <tr key={row.id} className="group hover:bg-muted/30">

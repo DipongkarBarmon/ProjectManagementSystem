@@ -67,6 +67,7 @@ const getEntityActivities = async (organizationId: string, entityType: string, e
     take: 50,
     include: {
       actor: { select: { id: true, name: true, avatar: true } }
+    }
   });
   return activities;
 };

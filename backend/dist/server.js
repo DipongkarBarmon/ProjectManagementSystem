@@ -464,7 +464,7 @@ var PlatformRole = {
   SUPER_ADMIN: "SUPER_ADMIN",
   USER: "USER"
 };
-var OrganizationRole2 = {
+var OrganizationRole = {
   OWNER: "OWNER",
   ORG_ADMIN: "ORG_ADMIN",
   PROJECT_MANAGER: "PROJECT_MANAGER",
@@ -575,6 +575,20 @@ var ActivityAction = {
 globalThis["__dirname"] = path2.dirname(fileURLToPath(import.meta.url));
 var PrismaClient = getPrismaClientClass();
 
+// src/errors/AppError.ts
+var AppError = class extends Error {
+  statusCode;
+  constructor(statusCode, message, stack = "") {
+    super(message);
+    this.statusCode = statusCode;
+    if (stack) {
+      this.stack = stack;
+    } else {
+      Error.captureStackTrace(this, this.constructor);
+    }
+  }
+};
+
 // src/app/middleware/globalErrorHandler.ts
 var globalErrorHandler = async (err, req, res, next) => {
   if (config_default.node_env === "development") {
@@ -583,16 +597,22 @@ var globalErrorHandler = async (err, req, res, next) => {
   let statusCode = httpStatus.INTERNAL_SERVER_ERROR;
   let errorMessage = err.message || "Internal Server Error";
   const errorName = err.name || "Internal Server Error";
-  if (err instanceof prismaNamespace_exports.PrismaClientValidationError) {
+  if (err instanceof AppError) {
+    statusCode = err.statusCode;
+    errorMessage = err.message;
+  } else if (err instanceof prismaNamespace_exports.PrismaClientValidationError) {
     statusCode = httpStatus.BAD_REQUEST;
     errorMessage = "You have provided incorrect field type or missing fields";
   } else if (err instanceof prismaNamespace_exports.PrismaClientKnownRequestError) {
     if (err.code === "P2002") {
-      statusCode = httpStatus.BAD_REQUEST, errorMessage = "Duplicate Key Error";
+      statusCode = httpStatus.BAD_REQUEST;
+      errorMessage = "Duplicate Key Error";
     } else if (err.code === "P2003") {
-      statusCode = httpStatus.BAD_REQUEST, errorMessage = "Foreign key constraint failed";
+      statusCode = httpStatus.BAD_REQUEST;
+      errorMessage = "Foreign key constraint failed";
     } else if (err.code === "P2025") {
-      statusCode = httpStatus.BAD_REQUEST, errorMessage = "An operation failed because it depends on one or more records that were required but not found.";
+      statusCode = httpStatus.BAD_REQUEST;
+      errorMessage = "An operation failed because it depends on one or more records that were required but not found.";
     }
   } else if (err instanceof prismaNamespace_exports.PrismaClientInitializationError) {
     if (err.errorCode === "P1000") {
@@ -610,9 +630,9 @@ var globalErrorHandler = async (err, req, res, next) => {
   }
   res.status(statusCode).json({
     success: false,
-    statusCode: statusCode || "Internal Server Error",
-    name: config_default.node_env === "development" ? errorName : "Internal Server Error",
-    message: config_default.node_env === "development" ? errorMessage : "Internal Server Error",
+    statusCode,
+    name: errorName,
+    message: statusCode === 500 && config_default.node_env !== "development" ? "Internal Server Error" : errorMessage,
     error: config_default.node_env === "development" ? err : void 0,
     stack: config_default.node_env === "development" ? err.stack : void 0
   });
@@ -630,6 +650,7 @@ var notFound = (req, res) => {
 
 // src/app/module/auth/auth.route.ts
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 
 // src/app/lib/prisma.ts
 import "dotenv/config";
@@ -722,9 +743,9 @@ var Permissions = {
 
 // src/app/config/rolePermissions.ts
 var RolePermissions = {
-  [OrganizationRole2.OWNER]: Object.values(Permissions),
-  [OrganizationRole2.ORG_ADMIN]: Object.values(Permissions),
-  [OrganizationRole2.PROJECT_MANAGER]: [
+  [OrganizationRole.OWNER]: Object.values(Permissions),
+  [OrganizationRole.ORG_ADMIN]: Object.values(Permissions),
+  [OrganizationRole.PROJECT_MANAGER]: [
     Permissions.ORG_READ,
     Permissions.MEMBER_READ,
     Permissions.TEAM_CREATE,
@@ -750,7 +771,7 @@ var RolePermissions = {
     Permissions.BILLING_READ
     // Can view billing but not manage
   ],
-  [OrganizationRole2.TEAM_LEAD]: [
+  [OrganizationRole.TEAM_LEAD]: [
     Permissions.ORG_READ,
     Permissions.MEMBER_READ,
     Permissions.TEAM_READ,
@@ -769,7 +790,7 @@ var RolePermissions = {
     Permissions.COMMENT_DELETE,
     Permissions.ACTIVITY_READ
   ],
-  [OrganizationRole2.MEMBER]: [
+  [OrganizationRole.MEMBER]: [
     Permissions.ORG_READ,
     Permissions.MEMBER_READ,
     Permissions.TEAM_READ,
@@ -784,7 +805,7 @@ var RolePermissions = {
     Permissions.COMMENT_DELETE,
     Permissions.ACTIVITY_READ
   ],
-  [OrganizationRole2.GUEST]: [
+  [OrganizationRole.GUEST]: [
     Permissions.ORG_READ,
     Permissions.PROJECT_READ,
     Permissions.SPRINT_READ,
@@ -1479,17 +1500,17 @@ var verifyEmail2 = catchAsync(async (req, res, next) => {
   const { accessToken, refreshToken: refreshToken3 } = result;
   res.cookie("accessToken", accessToken, {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: config_default.node_env === "production" ? "none" : "lax",
     secure: config_default.node_env === "production",
     maxAge: 1e3 * 60 * 60 * 24
     // 1 day
   });
   res.cookie("refreshToken", refreshToken3, {
-    secure: config_default.node_env === "production",
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: config_default.node_env === "production" ? "none" : "lax",
+    secure: config_default.node_env === "production",
     maxAge: 1e3 * 60 * 60 * 24 * 7
-    //7d
+    // 7 days
   });
   sendResponse(res, {
     success: true,
@@ -1504,17 +1525,17 @@ var userLogin = catchAsync(async (req, res, next) => {
   const { accessToken, refreshToken: refreshToken3 } = result;
   res.cookie("accessToken", accessToken, {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: config_default.node_env === "production" ? "none" : "lax",
     secure: config_default.node_env === "production",
     maxAge: 1e3 * 60 * 60 * 24
     // 1 day
   });
   res.cookie("refreshToken", refreshToken3, {
-    secure: config_default.node_env === "production",
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: config_default.node_env === "production" ? "none" : "lax",
+    secure: config_default.node_env === "production",
     maxAge: 1e3 * 60 * 60 * 24 * 7
-    //7d
+    // 7 days
   });
   sendResponse(res, {
     success: true,
@@ -1529,17 +1550,17 @@ var googleLogin2 = catchAsync(async (req, res, next) => {
   const { accessToken, refreshToken: refreshToken3 } = result;
   res.cookie("accessToken", accessToken, {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: config_default.node_env === "production" ? "none" : "lax",
     secure: config_default.node_env === "production",
     maxAge: 1e3 * 60 * 60 * 24
     // 1 day
   });
   res.cookie("refreshToken", refreshToken3, {
-    secure: config_default.node_env === "production",
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: config_default.node_env === "production" ? "none" : "lax",
+    secure: config_default.node_env === "production",
     maxAge: 1e3 * 60 * 60 * 24 * 7
-    //7d
+    // 7 days
   });
   sendResponse(res, {
     success: true,
@@ -1557,14 +1578,14 @@ var refreshToken2 = catchAsync(async (req, res) => {
   res.cookie("accessToken", accessToken, {
     httpOnly: true,
     secure: config_default.node_env === "production",
-    sameSite: "none",
+    sameSite: config_default.node_env === "production" ? "none" : "lax",
     maxAge: 1e3 * 60 * 60 * 24
     // 24 hour or 1 day
   });
   res.cookie("refreshToken", newRefreshToken, {
     httpOnly: true,
     secure: config_default.node_env === "production",
-    sameSite: "none",
+    sameSite: config_default.node_env === "production" ? "none" : "lax",
     maxAge: 1e3 * 60 * 60 * 24 * 7
     // 7 days
   });
@@ -1601,12 +1622,12 @@ var logout = catchAsync(async (req, res) => {
   res.clearCookie("accessToken", {
     httpOnly: true,
     secure: config_default.node_env === "production",
-    sameSite: "lax"
+    sameSite: config_default.node_env === "production" ? "none" : "lax"
   });
   res.clearCookie("refreshToken", {
     httpOnly: true,
     secure: config_default.node_env === "production",
-    sameSite: "lax"
+    sameSite: config_default.node_env === "production" ? "none" : "lax"
   });
   sendResponse(res, {
     statusCode: httpStatus3.OK,
@@ -1639,19 +1660,21 @@ var AuthController = {
 // src/app/middleware/validationRequest.ts
 var validationRequest = (zodSchema) => {
   return catchAsync(async (req, res, next) => {
-    const bodyData = req.body || {};
     const dataToValidate = {
-      body: bodyData,
+      body: req.body || {},
+      query: req.query || {},
+      params: req.params || {},
       file: req.file || void 0,
       files: req.files || void 0
-      // Optional: handle multi-file uploads if using multer
     };
     const result = zodSchema.safeParse(dataToValidate);
     if (!result.success) {
       console.log(result.error.issues);
       throw new Error(result.error.issues[0].message);
     }
-    req.body = result.data.body;
+    if (result.data.body) req.body = result.data.body;
+    if (result.data.query) req.query = result.data.query;
+    if (result.data.params) req.params = result.data.params;
     next();
   });
 };
@@ -1726,34 +1749,187 @@ var AuthValidation = {
 // src/app/lib/multer.ts
 import multer from "multer";
 var storage = multer.memoryStorage();
-var upload = multer({ storage });
+var upload = multer({
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024
+    // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith("image/") || file.mimetype.startsWith("application/pdf")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Only images and PDFs are allowed."));
+    }
+  }
+});
 
 // src/app/module/auth/auth.route.ts
 var router = Router();
-router.post(
-  "/register",
-  upload.single("avatar"),
-  validationRequest(AuthValidation.registerZodSchema),
-  AuthController.register
-);
-router.post("/verify-email", validationRequest(AuthValidation.verifyEmailZodSchema), AuthController.verifyEmail);
-router.post("/login", validationRequest(AuthValidation.loginZodSchema), AuthController.userLogin);
-router.post("/google", AuthController.googleLogin);
+var authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1e3,
+  // 15 minutes
+  max: 10,
+  // Limit each IP to 10 requests per windowMs
+  message: {
+    success: false,
+    statusCode: 429,
+    message: "Too many requests from this IP, please try again after 15 minutes"
+  }
+});
+var otpLimiter = rateLimit({
+  windowMs: 60 * 60 * 1e3,
+  // 1 hour
+  max: 5,
+  // Limit each IP to 5 requests per windowMs
+  message: {
+    success: false,
+    statusCode: 429,
+    message: "Too many OTP requests, please try again after an hour"
+  }
+});
+router.post("/register", upload.single("avatar"), validationRequest(AuthValidation.registerZodSchema), AuthController.register);
+router.post("/verify-email", otpLimiter, validationRequest(AuthValidation.verifyEmailZodSchema), AuthController.verifyEmail);
+router.post("/login", authLimiter, validationRequest(AuthValidation.loginZodSchema), AuthController.userLogin);
+router.post("/google", authLimiter, AuthController.googleLogin);
 router.post("/refresh-token", AuthController.refreshToken);
-router.post("/forget-password", validationRequest(AuthValidation.forgetPasswordZodSchema), AuthController.forgetPassword);
-router.post("/reset-password", validationRequest(AuthValidation.resetPasswordZodSchema), AuthController.resetPassword);
+router.post("/forget-password", otpLimiter, validationRequest(AuthValidation.forgetPasswordZodSchema), AuthController.forgetPassword);
+router.post("/reset-password", authLimiter, validationRequest(AuthValidation.resetPasswordZodSchema), AuthController.resetPassword);
 router.post("/logout", AuthController.logout);
 router.get("/me", auth(), AuthController.getMe);
 var AuthRouter = router;
+
+// src/app/module/user/user.route.ts
+import { Router as Router2 } from "express";
+
+// src/app/module/user/user.controller.ts
+import httpStatus4 from "http-status";
+
+// src/app/module/user/user.service.ts
+var getUserOrganizations = async (userId) => {
+  const userOrganizations = await prisma.organizationMember.findMany({
+    where: {
+      userId
+    },
+    include: {
+      organization: {
+        include: {
+          members: true,
+          subscription: {
+            include: { plan: true }
+          }
+        }
+      }
+    }
+  });
+  const organizations = userOrganizations.map((orgMember) => ({
+    ...orgMember.organization,
+    currentUserRole: orgMember.organizationRole
+  }));
+  return {
+    data: organizations
+  };
+};
+var getAllUsersForAdmin = async (query) => {
+  const limit = query.limit ? Number(query.limit) : 10;
+  const page = query.page ? Number(query.page) : 1;
+  const skip = (page - 1) * limit;
+  const users = await prisma.user.findMany({
+    skip,
+    take: limit,
+    orderBy: { createdAt: "desc" }
+  });
+  const total = await prisma.user.count();
+  return {
+    data: users,
+    meta: { page, limit, total, totalPages: Math.ceil(total / limit) }
+  };
+};
+var toggleBlockUser = async (userId, isBlocked) => {
+  return await prisma.user.update({
+    where: { id: userId },
+    data: { status: isBlocked ? UserStatus.BLOCKED : UserStatus.ACTIVE }
+  });
+};
+var softDeleteUser = async (userId) => {
+  return await prisma.user.update({
+    where: { id: userId },
+    data: { isDeleted: true, deletedAt: /* @__PURE__ */ new Date(), status: UserStatus.DELETED }
+  });
+};
+var UserService = {
+  getUserOrganizations,
+  getAllUsersForAdmin,
+  toggleBlockUser,
+  softDeleteUser
+};
+
+// src/app/module/user/user.controller.ts
+var getUserOrganizations2 = catchAsync(async (req, res, next) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    throw new Error("Unauthorized");
+  }
+  const result = await UserService.getUserOrganizations(userId);
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus4.OK,
+    message: "User organizations fetched successfully!",
+    data: result.data
+  });
+});
+var getAllUsersForAdmin2 = catchAsync(async (req, res, next) => {
+  const query = req.query;
+  const result = await UserService.getAllUsersForAdmin(query);
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus4.OK,
+    message: "Users fetched successfully",
+    data: result.data,
+    meta: result.meta
+  });
+});
+var toggleBlockUser2 = catchAsync(async (req, res, next) => {
+  const result = await UserService.toggleBlockUser(req.params.id, req.body.isBlocked);
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus4.OK,
+    message: "User block status updated",
+    data: result
+  });
+});
+var softDeleteUser2 = catchAsync(async (req, res, next) => {
+  const result = await UserService.softDeleteUser(req.params.id);
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus4.OK,
+    message: "User deleted successfully",
+    data: result
+  });
+});
+var UserController = {
+  getUserOrganizations: getUserOrganizations2,
+  getAllUsersForAdmin: getAllUsersForAdmin2,
+  toggleBlockUser: toggleBlockUser2,
+  softDeleteUser: softDeleteUser2
+};
+
+// src/app/module/user/user.route.ts
+var router2 = Router2();
+router2.get("/my-organizations", auth({ platformRoles: [PlatformRole.USER, PlatformRole.SUPER_ADMIN] }), UserController.getUserOrganizations);
+router2.get("/admin/all", auth({ platformRoles: [PlatformRole.SUPER_ADMIN] }), UserController.getAllUsersForAdmin);
+router2.patch("/admin/:id/block", auth({ platformRoles: [PlatformRole.SUPER_ADMIN] }), UserController.toggleBlockUser);
+router2.delete("/admin/:id", auth({ platformRoles: [PlatformRole.SUPER_ADMIN] }), UserController.softDeleteUser);
+var UserRouter = router2;
 
 // src/app.ts
 import cookieParser from "cookie-parser";
 
 // src/app/module/invitation/invitation.route.ts
-import Router2 from "express";
+import Router3 from "express";
 
 // src/app/module/invitation/invitation.controller.ts
-import httpStatus4 from "http-status";
+import httpStatus5 from "http-status";
 
 // src/app/module/invitation/invitation.service.ts
 import path4 from "path";
@@ -1820,1000 +1996,23 @@ var getEntityActivities = async (organizationId, entityType, entityId, user) => 
   });
   return activities;
 };
+var getGlobalActivities = async () => {
+  const activities = await prisma.activity.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    include: {
+      actor: { select: { id: true, name: true, avatar: true, email: true } },
+      organization: { select: { id: true, name: true } }
+    }
+  });
+  return activities;
+};
 var ActivityService = {
   createActivity,
   getOrganizationActivities,
-  getEntityActivities
+  getEntityActivities,
+  getGlobalActivities
 };
-
-// src/app/module/invitation/invitation.service.ts
-var hashInvitationToken = (token) => crypto2.createHash("sha256").update(token).digest("hex");
-var sentInvitations = async (payload, organizationId, userId) => {
-  if (!payload.email || !payload.organizationRole) {
-    throw new Error("Email and organization role are required");
-  }
-  if (!organizationId) {
-    throw new Error("Organization ID is required");
-  }
-  if (!userId) {
-    throw new Error("User ID is required");
-  }
-  const organization = await prisma.organization.findUnique({
-    where: {
-      id: organizationId
-    }
-  });
-  if (!organization) {
-    throw new Error("Organization not found");
-  }
-  const user = await prisma.user.findUnique({
-    where: {
-      email: payload.email
-    }
-  });
-  if (user) {
-    const existingMembership = await prisma.organizationMember.findUnique({
-      where: {
-        organizationId_userId: {
-          organizationId,
-          userId: user.id
-        }
-      }
-    });
-    if (existingMembership) {
-      throw new Error("You are already a member of this organization");
-    }
-  }
-  const token = crypto2.randomBytes(32).toString("hex");
-  console.log("Generated token:", token);
-  const tokenHash = hashInvitationToken(token);
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1e3 * 7);
-  const invitation = await prisma.invitation.create({
-    data: {
-      email: payload.email,
-      organizationRole: payload.organizationRole,
-      invitedById: userId,
-      organizationId,
-      token: tokenHash,
-      expiresAt
-    }
-  });
-  if (!invitation) {
-    throw new Error("Fail to create invitation,Please try again");
-  }
-  const invitatedUser = await prisma.user.findUnique({
-    where: {
-      id: userId
-    }
-  });
-  if (!invitatedUser) {
-    throw new Error("Invitated user not found");
-  }
-  const templatePath = path4.join(process.cwd(), "src/app/templates/invitation-mail.ejs");
-  const templateData = {
-    organizationName: organization.name,
-    invitedByName: invitatedUser.name,
-    roleName: payload.organizationRole,
-    invitationUrl: `${config_default.frontend_url}/invitation/accept/${token}`,
-    expiresAt,
-    year: (/* @__PURE__ */ new Date()).getFullYear()
-  };
-  const html = await ejs2.renderFile(templatePath, templateData);
-  await transporter.sendMail({
-    from: `TaskFlow <${config_default.smtp_sender}>`,
-    to: payload.email,
-    subject: `${invitatedUser.name} invited you to join ${organization.name} on TaskFlow`,
-    html
-  });
-  await ActivityService.createActivity({
-    organizationId,
-    actorId: userId,
-    action: ActivityAction.INVITED,
-    entityType: "ORGANIZATION",
-    entityId: organizationId,
-    metadata: { invitedEmail: payload.email, role: payload.organizationRole },
-    description: `Sent invitation to ${payload.email}`
-  });
-};
-var getInvitationByToken = async (token) => {
-  if (!token) {
-    throw new Error("Invitation token is required");
-  }
-  const invitation = await prisma.invitation.findUnique({
-    where: {
-      token: hashInvitationToken(token)
-    },
-    include: {
-      organization: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          logo: true
-        }
-      },
-      invitedBy: {
-        select: {
-          name: true
-        }
-      }
-    }
-  });
-  if (!invitation) {
-    throw new Error("Invalid invitation");
-  }
-  if (invitation.status !== InvitationStatus.PENDING) {
-    throw new Error(`Invitation is ${invitation.status.toLowerCase()}`);
-  }
-  if (invitation.expiresAt < /* @__PURE__ */ new Date()) {
-    await prisma.invitation.update({
-      where: {
-        id: invitation.id
-      },
-      data: {
-        status: InvitationStatus.EXPIRED
-      }
-    });
-    throw new Error("Invitation expired");
-  }
-  return {
-    email: invitation.email,
-    organizationId: invitation.organizationId,
-    organizationRole: invitation.organizationRole,
-    expiresAt: invitation.expiresAt,
-    organization: invitation.organization,
-    invitedBy: invitation.invitedBy
-  };
-};
-var acceptInvitation = async (token, userId) => {
-  if (!userId) {
-    throw new Error("User ID is required");
-  }
-  const invitation = await prisma.invitation.findUnique({
-    where: {
-      token: hashInvitationToken(token)
-    }
-  });
-  if (!invitation) {
-    throw new Error("Invalid invitation");
-  }
-  if (invitation.status !== InvitationStatus.PENDING) {
-    throw new Error(`Invitation is ${invitation.status.toLowerCase()}`);
-  }
-  if (invitation.expiresAt < /* @__PURE__ */ new Date()) {
-    throw new Error("Invitation expired");
-  }
-  const user = await prisma.user.findUnique({
-    where: {
-      id: userId
-    }
-  });
-  if (!user) {
-    throw new Error("User not found");
-  }
-  if (user.email.toLowerCase() !== invitation.email.toLowerCase()) {
-    throw new Error("This invitation belongs to a different email address");
-  }
-  const result = await prisma.$transaction(async (tx) => {
-    const membership = await tx.organizationMember.upsert({
-      where: {
-        organizationId_userId: {
-          organizationId: invitation.organizationId,
-          userId
-        }
-      },
-      update: {
-        organizationRole: invitation.organizationRole
-      },
-      create: {
-        organizationId: invitation.organizationId,
-        userId,
-        organizationRole: invitation.organizationRole
-      }
-    });
-    await tx.invitation.update({
-      where: { id: invitation.id },
-      data: {
-        status: InvitationStatus.ACCEPTED,
-        acceptedAt: /* @__PURE__ */ new Date()
-      }
-    });
-    return membership;
-  });
-  await ActivityService.createActivity({
-    organizationId: invitation.organizationId,
-    actorId: userId,
-    action: ActivityAction.MEMBER_ADDED,
-    entityType: "ORGANIZATION",
-    entityId: invitation.organizationId,
-    description: `Accepted invitation and joined organization`
-  });
-  return result;
-};
-var getAllInvitations = async (query) => {
-  const limit = query.limit ? Number(query.limit) : 10;
-  const page = query.page ? Number(query.page) : 1;
-  const skip = (page - 1) * limit;
-  const sortBy = query.sortBy ? query.sortBy : "createdAt";
-  const sortOrder = query.sortOrder ? query.sortOrder : "desc";
-  const addConditions = [];
-  if (query.searchTerm) {
-    addConditions.push({
-      OR: [
-        {
-          email: {
-            contains: query.searchTerm,
-            mode: "insensitive"
-          }
-        }
-      ]
-    });
-  }
-  if (query.email) {
-    addConditions.push({
-      email: query.email
-    });
-  }
-  if (query.organizationRole) {
-    addConditions.push({
-      organizationRole: {
-        equals: query.organizationRole
-      }
-    });
-  }
-  if (query.status) {
-    addConditions.push({
-      status: {
-        equals: query.status
-      }
-    });
-  }
-  if (query.acceptedAt) {
-    addConditions.push({
-      acceptedAt: {
-        gte: query.acceptedAt
-      }
-    });
-  }
-  if (query.expiresAt) {
-    addConditions.push({
-      expiresAt: {
-        gte: query.expiresAt
-      }
-    });
-  }
-  const invitations = await prisma.invitation.findMany({
-    where: {
-      AND: addConditions
-    },
-    skip,
-    take: limit,
-    orderBy: {
-      [sortBy]: sortOrder
-    }
-  });
-  return invitations;
-};
-var getInvitationById = async (invitationId) => {
-  if (!invitationId) {
-    throw new Error("Invitation ID is required");
-  }
-  const invitation = await prisma.invitation.findUnique({
-    where: {
-      id: invitationId
-    },
-    include: {
-      organization: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          logo: true
-        }
-      },
-      invitedBy: {
-        select: {
-          name: true
-        }
-      }
-    }
-  });
-  if (!invitation) {
-    throw new Error("Invitation not found");
-  }
-  return invitation;
-};
-var cencelInvitation = async (invitationId) => {
-  if (!invitationId) {
-    throw new Error("Invitation ID is required");
-  }
-  const invitation = await prisma.invitation.findUnique({
-    where: {
-      id: invitationId
-    }
-  });
-  if (!invitation) {
-    throw new Error("Invitation not found");
-  }
-  if (invitation.status !== InvitationStatus.PENDING) {
-    throw new Error(`Invitation is ${invitation.status.toLowerCase()}`);
-  }
-  const updatedInvitation = await prisma.invitation.update({
-    where: {
-      id: invitationId
-    },
-    data: {
-      status: InvitationStatus.CANCELLED
-    }
-  });
-  return updatedInvitation;
-};
-var deleteInvitation = async (invitationId) => {
-  if (!invitationId) {
-    throw new Error("Invitation ID is required");
-  }
-  const invitation = await prisma.invitation.delete({
-    where: {
-      id: invitationId
-    }
-  });
-  return invitation;
-};
-var InvitationService = {
-  sentInvitations,
-  getInvitationByToken,
-  acceptInvitation,
-  getAllInvitations,
-  getInvitationById,
-  cencelInvitation,
-  deleteInvitation
-};
-
-// src/app/module/invitation/invitation.controller.ts
-var sentInvitations2 = catchAsync(async (req, res, next) => {
-  const body = req.body;
-  const userId = req.user?.userId;
-  const organizationId = req.params.organizationId;
-  const result = await InvitationService.sentInvitations(body, organizationId, userId);
-  sendResponse(res, {
-    success: true,
-    statusCode: httpStatus4.CREATED,
-    message: "Invitation sent successfully!",
-    data: result
-  });
-});
-var getInvitationByToken2 = catchAsync(async (req, res) => {
-  const result = await InvitationService.getInvitationByToken(req.params.token);
-  sendResponse(res, {
-    success: true,
-    statusCode: httpStatus4.OK,
-    message: "Invitation is valid",
-    data: result
-  });
-});
-var acceptInvitation2 = catchAsync(async (req, res) => {
-  const result = await InvitationService.acceptInvitation(
-    req.params.token,
-    req.user?.userId
-  );
-  sendResponse(res, {
-    success: true,
-    statusCode: httpStatus4.OK,
-    message: "Invitation accepted successfully",
-    data: result
-  });
-});
-var getAllInvitations2 = catchAsync(async (req, res) => {
-  const query = req.query;
-  const result = await InvitationService.getAllInvitations(query);
-  sendResponse(res, {
-    success: true,
-    statusCode: httpStatus4.OK,
-    message: "All invitations fetched successfully",
-    data: result
-  });
-});
-var getInvitationById2 = catchAsync(async (req, res) => {
-  const invitationId = req.params.invitationId;
-  const result = await InvitationService.getInvitationById(invitationId);
-  sendResponse(res, {
-    success: true,
-    statusCode: httpStatus4.OK,
-    message: "Invitation fetched successfully",
-    data: result
-  });
-});
-var cencelInvitation2 = catchAsync(async (req, res) => {
-  const invitationId = req.params.invitationId;
-  const result = await InvitationService.cencelInvitation(invitationId);
-  sendResponse(res, {
-    success: true,
-    statusCode: httpStatus4.OK,
-    message: "Invitation cancelled successfully",
-    data: result
-  });
-});
-var deleteInvitation2 = catchAsync(async (req, res) => {
-  const invitationId = req.params.invitationId;
-  const result = await InvitationService.deleteInvitation(invitationId);
-  sendResponse(res, {
-    success: true,
-    statusCode: httpStatus4.OK,
-    message: "Invitation deleted successfully",
-    data: result
-  });
-});
-var InvitationController = {
-  sentInvitations: sentInvitations2,
-  getInvitationByToken: getInvitationByToken2,
-  acceptInvitation: acceptInvitation2,
-  getAllInvitations: getAllInvitations2,
-  getInvitationById: getInvitationById2,
-  cencelInvitation: cencelInvitation2,
-  deleteInvitation: deleteInvitation2
-};
-
-// src/app/module/invitation/invitation.validation.ts
-import z2 from "zod";
-var sentInvitationZodSchema = z2.object({
-  body: z2.object({
-    email: z2.string().email({ message: "Invalid email address" }),
-    organizationRole: z2.string().min(3, { message: "Role must be at least 3 characters long" })
-  })
-});
-var GetAllInvitationsZodSchema = z2.object({
-  body: z2.object({
-    searchTerm: z2.string().optional(),
-    page: z2.string().optional(),
-    limit: z2.string().optional(),
-    sortOrder: z2.string().optional(),
-    sortBy: z2.string().optional(),
-    email: z2.string().optional(),
-    organizationRole: z2.string().optional(),
-    status: z2.string().optional(),
-    acceptedAt: z2.coerce.date().optional(),
-    expiresAt: z2.coerce.date().optional()
-  }).optional()
-});
-var InvitationValidation = {
-  sentInvitationZodSchema,
-  GetAllInvitationsZodSchema
-};
-
-// src/app/module/invitation/invitation.route.ts
-var router2 = Router2();
-router2.post("/:organizationId/sent-invitation", auth({ permissions: [Permissions.MEMBER_INVITE] }), validationRequest(InvitationValidation.sentInvitationZodSchema), InvitationController.sentInvitations);
-router2.get("/:token", InvitationController.getInvitationByToken);
-router2.post("/:token/accept", auth({ platformRoles: [PlatformRole.USER] }), InvitationController.acceptInvitation);
-router2.get("/:organizationId/invitations", auth({ permissions: [Permissions.MEMBER_READ] }), validationRequest(InvitationValidation.GetAllInvitationsZodSchema), InvitationController.getAllInvitations);
-router2.get("/:organizationId/invitations/:invitationId", auth({ permissions: [Permissions.MEMBER_READ] }), InvitationController.getInvitationById);
-router2.patch("/:organizationId/invitations/:invitationId/cancel", auth({ permissions: [Permissions.MEMBER_REMOVE] }), InvitationController.cencelInvitation);
-var InvitationRouter = router2;
-
-// src/app/module/organization/organization.route.ts
-import Rounter from "express";
-
-// src/app/module/organization/organization.controller.ts
-import httpStatus5 from "http-status";
-
-// src/app/module/organization/organization.service.ts
-var createOrganization = async (payload, fileBuffer, userId) => {
-  const { name, slug, description } = payload;
-  if (!slug) {
-    throw new Error("Slug is required");
-  }
-  if (!name) {
-    throw new Error("Name is required");
-  }
-  if (!userId) {
-    throw new Error("Plaese login to create an organization");
-  }
-  const user = await prisma.user.findUnique({
-    where: {
-      id: userId
-    }
-  });
-  if (!user) {
-    throw new Error("User not found");
-  }
-  if (user.emailVerified === false) {
-    throw new Error("Please verify your email before creating an organization");
-  }
-  if (user.status === "BLOCKED") {
-    throw new Error("Your account has been blocked. Please contact support.");
-  }
-  if (user.status === "DELETED" || user.isDeleted === true) {
-    throw new Error("Your account has been deleted. Please contact support.");
-  }
-  if (user.isActive === false) {
-    throw new Error("Your account is not active. Please contact support.");
-  }
-  const isEexistOrganization = await prisma.organization.findFirst({
-    where: {
-      OR: [
-        { name },
-        { slug }
-      ]
-    }
-  });
-  if (isEexistOrganization) {
-    throw new Error("Organization already exists");
-  }
-  let cloudinaryResult;
-  try {
-    cloudinaryResult = await uploadToCloudinary(fileBuffer, "organization-logo");
-  } catch (error) {
-    throw new Error("Fail to upload logo in cloudinary!");
-  }
-  if (!cloudinaryResult) {
-    throw new Error("Does not upload logo in cloudinary,Please try again");
-  }
-  const freePlan = await prisma.plan.findUnique({ where: { name: "FREE" } });
-  if (!freePlan) {
-    throw new Error("Free plan not found in the system. Contact support.");
-  }
-  const { organization, organizationMember } = await prisma.$transaction(async (tx) => {
-    const org = await tx.organization.create({
-      data: {
-        name,
-        slug,
-        description,
-        logo: cloudinaryResult.secure_url,
-        logoPublicId: cloudinaryResult.public_id
-      }
-    });
-    const member = await tx.organizationMember.create({
-      data: {
-        userId,
-        organizationId: org.id,
-        organizationRole: OrganizationRole2.ORG_ADMIN
-      }
-    });
-    await tx.subscription.create({
-      data: {
-        organizationId: org.id,
-        planId: freePlan.id,
-        status: "ACTIVE",
-        interval: "MONTHLY",
-        currentPeriodStart: /* @__PURE__ */ new Date(),
-        currentPeriodEnd: new Date((/* @__PURE__ */ new Date()).setMonth((/* @__PURE__ */ new Date()).getMonth() + 120))
-        // 10 years for Free by default
-      }
-    });
-    return { organization: org, organizationMember: member };
-  });
-  if (!organization || !organizationMember) {
-    throw new Error("Fail to create organization and member. Please try again.");
-  }
-  const organizationWithMembers = await prisma.organization.findUnique({
-    where: {
-      id: organization.id
-    },
-    include: {
-      members: true
-    }
-  });
-  if (!organizationWithMembers) {
-    throw new Error("Fail to fetch organization with members,Please try again");
-  }
-  await ActivityService.createActivity({
-    organizationId: organization.id,
-    actorId: userId,
-    action: ActivityAction.CREATED,
-    entityType: "ORGANIZATION",
-    entityId: organization.id,
-    description: `Organization ${organization.name} created`
-  });
-  return { organizationWithMembers };
-};
-var updateLogo = async (fileBuffer, userId, organizationId) => {
-  const user = await prisma.user.findUnique({
-    where: {
-      id: userId
-    }
-  });
-  const currentOrganization = await prisma.organization.findUnique({
-    where: {
-      id: organizationId
-    }
-  });
-  if (!currentOrganization) {
-    throw new Error("Organization not found");
-  }
-  if (!user) {
-    throw new Error("User not found");
-  }
-  if (user.emailVerified === false) {
-    throw new Error("Please verify your email before updating organization logo");
-  }
-  if (user.status === "BLOCKED") {
-    throw new Error("Your account has been blocked. Please contact support.");
-  }
-  if (user.status === "DELETED" || user.isDeleted === true) {
-    throw new Error("Your account has been deleted. Please contact support.");
-  }
-  if (user.isActive === false) {
-    throw new Error("Your account is not active. Please contact support.");
-  }
-  let cloudinaryResult;
-  try {
-    cloudinaryResult = await uploadToCloudinary(fileBuffer, "organization-logo");
-  } catch (error) {
-    throw new Error("Fail to upload logo in cloudinary!");
-  }
-  if (!cloudinaryResult) {
-    throw new Error("Does not upload logo in cloudinary,Please try again");
-  }
-  const organization = await prisma.organization.update({
-    where: {
-      id: organizationId
-    },
-    data: {
-      logo: cloudinaryResult.secure_url,
-      logoPublicId: cloudinaryResult.public_id
-    },
-    include: {
-      members: true
-    }
-  });
-  if (currentOrganization.logoPublicId && currentOrganization.logo) {
-    try {
-      await deleteFromCloudinary(currentOrganization.logoPublicId);
-    } catch (error) {
-      console.error("Failed to delete old logo from Cloudinary:", error);
-    }
-  }
-  await ActivityService.createActivity({
-    organizationId: organization.id,
-    actorId: userId,
-    action: ActivityAction.UPDATED,
-    entityType: "ORGANIZATION",
-    entityId: organization.id,
-    description: `Organization logo updated`
-  });
-  return {
-    data: organization
-  };
-};
-var updateOrganizationInfo = async (payload, userId, organizationId) => {
-  const user = await prisma.user.findUnique({
-    where: {
-      id: userId
-    }
-  });
-  if (!user) {
-    throw new Error("User not found");
-  }
-  if (user.emailVerified === false) {
-    throw new Error("Please verify your email before updating organization info");
-  }
-  if (user.status === "BLOCKED") {
-    throw new Error("Your account has been blocked. Please contact support.");
-  }
-  if (user.status === "DELETED" || user.isDeleted === true) {
-    throw new Error("Your account has been deleted. Please contact support.");
-  }
-  if (user.isActive === false) {
-    throw new Error("Your account is not active. Please contact support.");
-  }
-  const organization = await prisma.organization.update({
-    where: {
-      id: organizationId
-    },
-    data: {
-      ...payload
-    },
-    include: {
-      members: true
-    }
-  });
-  await ActivityService.createActivity({
-    organizationId: organization.id,
-    actorId: userId,
-    action: ActivityAction.UPDATED,
-    entityType: "ORGANIZATION",
-    entityId: organization.id,
-    description: `Organization info updated`
-  });
-  return { organization };
-};
-var getOrganizationById = async (organizationId) => {
-  const organization = await prisma.organization.findUnique({
-    where: {
-      id: organizationId
-    },
-    include: {
-      members: true,
-      subscription: {
-        include: { plan: true }
-      }
-    }
-  });
-  if (!organization) {
-    throw new Error("Organization not found");
-  }
-  return {
-    data: organization
-  };
-};
-var getAllOrganizations = async (query) => {
-  const limit = query.limit ? Number(query.limit) : 10;
-  const page = query.page ? Number(query.page) : 1;
-  const skip = (page - 1) * limit;
-  const sortBy = query.sortBy ? query.sortBy : "createdAt";
-  const sortOrder = query.sortOrder ? query.sortOrder : "desc";
-  const addConditions = [];
-  if (query.searchTerm) {
-    addConditions.push({
-      OR: [
-        {
-          name: {
-            contains: query.searchTerm,
-            mode: "insensitive"
-          }
-        },
-        {
-          slug: {
-            contains: query.searchTerm,
-            mode: "insensitive"
-          }
-        },
-        {
-          description: {
-            contains: query.searchTerm,
-            mode: "insensitive"
-          }
-        }
-      ]
-    });
-  }
-  if (query.name) {
-    addConditions.push({
-      name: query.name
-    });
-  }
-  if (query.slug) {
-    addConditions.push({
-      slug: query.slug
-    });
-  }
-  if (query.description) {
-    addConditions.push({
-      description: query.description
-    });
-  }
-  const organizations = await prisma.organization.findMany({
-    where: {
-      AND: addConditions
-    },
-    skip,
-    take: limit,
-    orderBy: {
-      [sortBy]: sortOrder
-    },
-    include: {
-      subscription: {
-        include: { plan: true }
-      }
-    }
-  });
-  const totalOrganizations = await prisma.organization.count({
-    where: {
-      AND: addConditions
-    }
-  });
-  const totalPages = Math.ceil(totalOrganizations / limit);
-  return {
-    data: organizations,
-    meta: {
-      page,
-      limit,
-      total: totalOrganizations,
-      totalPages
-    }
-  };
-};
-var deleteOrganization = async (organizationId, userId) => {
-  const organization = await prisma.organization.findUnique({
-    where: {
-      id: organizationId
-    }
-  });
-  if (!organization) {
-    throw new Error("Organization not found");
-  }
-  const deletedOrganization = await prisma.organization.delete({
-    where: {
-      id: organizationId
-    }
-  });
-  await ActivityService.createActivity({
-    organizationId,
-    actorId: userId,
-    action: ActivityAction.DELETED,
-    entityType: "ORGANIZATION",
-    entityId: organizationId,
-    description: `Organization ${organization.name} deleted`
-  });
-  return {
-    data: deletedOrganization
-  };
-};
-var OrganizationService = {
-  createOrganization,
-  updateLogo,
-  updateOrganizationInfo,
-  getOrganizationById,
-  getAllOrganizations,
-  deleteOrganization
-};
-
-// src/app/module/organization/organization.controller.ts
-var createOrganization2 = catchAsync(async (req, res, next) => {
-  const body = req.body;
-  const payload = req.file;
-  const userId = req.user?.userId;
-  console.log("userId", userId);
-  if (!payload) {
-    throw new Error("No File Provided!");
-  }
-  const result = await OrganizationService.createOrganization(body, payload?.buffer, userId);
-  sendResponse(res, {
-    success: true,
-    statusCode: httpStatus5.CREATED,
-    message: "Organization created successfully!",
-    data: result
-  });
-});
-var updateLogo2 = catchAsync(async (req, res, next) => {
-  const organizationId = req.params.organizationId;
-  const payload = req.file;
-  const userId = req.user?.userId;
-  if (!payload) {
-    throw new Error("No File Provided!");
-  }
-  const result = await OrganizationService.updateLogo(payload?.buffer, userId, organizationId);
-  sendResponse(res, {
-    success: true,
-    statusCode: httpStatus5.CREATED,
-    message: "Organization logo updated successfully!",
-    data: result.data
-  });
-});
-var updateOrganizationInfo2 = catchAsync(async (req, res, next) => {
-  const organizationId = req.params.organizationId;
-  const body = req.body;
-  const userId = req.user?.userId;
-  const result = await OrganizationService.updateOrganizationInfo(body, userId, organizationId);
-  sendResponse(res, {
-    success: true,
-    statusCode: httpStatus5.CREATED,
-    message: "Organization info updated successfully!",
-    data: result
-  });
-});
-var getOrganizationById2 = catchAsync(async (req, res, next) => {
-  const organizationId = req.params.organizationId;
-  const result = await OrganizationService.getOrganizationById(organizationId);
-  sendResponse(res, {
-    success: true,
-    statusCode: httpStatus5.OK,
-    message: "Organization fetched successfully!",
-    data: result.data
-  });
-});
-var getAllOrganizations2 = catchAsync(async (req, res, next) => {
-  const query = req.query;
-  const result = await OrganizationService.getAllOrganizations(query);
-  sendResponse(res, {
-    success: true,
-    statusCode: httpStatus5.OK,
-    message: "Organizations fetched successfully!",
-    data: result.data,
-    meta: result.meta
-  });
-});
-var deleteOrganization2 = catchAsync(async (req, res, next) => {
-  const organizationId = req.params.organizationId;
-  const userId = req.user?.userId;
-  const result = await OrganizationService.deleteOrganization(organizationId, userId);
-  sendResponse(res, {
-    success: true,
-    statusCode: httpStatus5.OK,
-    message: "Organization deleted successfully!",
-    data: result.data
-  });
-});
-var OrganizationController = {
-  createOrganization: createOrganization2,
-  updateLogo: updateLogo2,
-  updateOrganizationInfo: updateOrganizationInfo2,
-  getOrganizationById: getOrganizationById2,
-  getAllOrganizations: getAllOrganizations2,
-  deleteOrganization: deleteOrganization2
-};
-
-// src/app/module/organization/organization.validation.ts
-import z3 from "zod";
-var ALLOWED_MULTI_TYPES2 = {
-  image: ["image/jpeg", "image/jpg", "image/png", "image/webp"],
-  pdf: ["application/pdf"],
-  document: [
-    "application/pdf",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-  ],
-  audio: ["audio/mpeg", "audio/wav", "audio/mp4"],
-  video: ["video/mp4", "video/quicktime", "video/x-matroska"]
-};
-var singleFileEngine2 = (allowedTypes, maxMB) => {
-  return z3.object({
-    fieldname: z3.string(),
-    originalname: z3.string(),
-    encoding: z3.string(),
-    mimetype: z3.string().refine(
-      (type) => allowedTypes.includes(type),
-      { message: `Invalid format. Expected: ${allowedTypes.map((t) => t.split("/")[1]).join(", ")}` }
-    ),
-    size: z3.number().max(maxMB * 1024 * 1024, `Size exceeds limit of ${maxMB}MB`)
-  });
-};
-var CreateOrganizationSchema = z3.object({
-  body: z3.object({
-    name: z3.string().min(3, { message: "Name must be at least 3 characters long" }),
-    slug: z3.string().min(3, { message: "Slug must be at least 3 characters long" }),
-    description: z3.string().optional()
-  }),
-  file: z3.object({
-    logo: z3.array(singleFileEngine2(ALLOWED_MULTI_TYPES2.image, 10)).max(1, "Only 1 logo allowed").optional()
-  }).optional()
-});
-var UpdateLogoZodSchema = z3.object({
-  file: z3.object({
-    logo: z3.array(singleFileEngine2(ALLOWED_MULTI_TYPES2.image, 10)).max(1, "Only 1 logo allowed").optional()
-  }).optional()
-});
-var UpdateOrganizationInfoZodSchema = z3.object({
-  body: z3.object({
-    name: z3.string().min(3, { message: "Name must be at least 3 characters long" }).optional(),
-    slug: z3.string().min(3, { message: "Slug must be at least 3 characters long" }).optional(),
-    description: z3.string().optional()
-  })
-});
-var GetAllOrganizationZodSchema = z3.object({
-  body: z3.object({
-    searchTerm: z3.string().optional(),
-    page: z3.string().optional(),
-    limit: z3.string().optional(),
-    sortOrder: z3.string().optional(),
-    sortBy: z3.string().optional(),
-    name: z3.string().optional(),
-    slug: z3.string().optional(),
-    description: z3.string().optional()
-  }).optional()
-});
-var OrganizationValidation = {
-  CreateOrganizationSchema,
-  UpdateLogoZodSchema,
-  UpdateOrganizationInfoZodSchema,
-  GetAllOrganizationZodSchema
-};
-
-// src/app/module/organization/organization.route.ts
-var router3 = Rounter();
-router3.post("/create-organization", auth({ platformRoles: [PlatformRole.USER, PlatformRole.SUPER_ADMIN] }), upload.single("logo"), validationRequest(OrganizationValidation.CreateOrganizationSchema), OrganizationController.createOrganization);
-router3.post("/:organizationId/update-logo", auth({ permissions: [Permissions.ORG_UPDATE] }), upload.single("logo"), OrganizationController.updateLogo);
-router3.post("/:organizationId/update-OrganizationInfo", auth({ permissions: [Permissions.ORG_UPDATE] }), validationRequest(OrganizationValidation.UpdateOrganizationInfoZodSchema), OrganizationController.updateOrganizationInfo);
-router3.get("/get-all-organizations", validationRequest(OrganizationValidation.GetAllOrganizationZodSchema), OrganizationController.getAllOrganizations);
-router3.get("/:organizationId", OrganizationController.getOrganizationById);
-router3.delete("/:organizationId", auth({ permissions: [Permissions.ORG_UPDATE] }), OrganizationController.deleteOrganization);
-var OrganizationRouter = router3;
-
-// src/app/module/project/project.route.ts
-import Router3 from "express";
-
-// src/app/module/project/project.controller.ts
-import httpStatus6 from "http-status";
 
 // src/app/lib/bkash.ts
 var getBkashToken = async () => {
@@ -3175,6 +2374,1135 @@ var OrganizationBillingService = class {
   }
 };
 
+// src/app/module/invitation/invitation.service.ts
+var hashInvitationToken = (token) => crypto2.createHash("sha256").update(token).digest("hex");
+var sentInvitations = async (payload, organizationId, userId) => {
+  if (!payload.email || !payload.organizationRole) {
+    throw new Error("Email and organization role are required");
+  }
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+  if (!userId) {
+    throw new Error("User ID is required");
+  }
+  const organization = await prisma.organization.findUnique({
+    where: {
+      id: organizationId
+    }
+  });
+  if (!organization) {
+    throw new Error("Organization not found");
+  }
+  const user = await prisma.user.findUnique({
+    where: {
+      email: payload.email
+    }
+  });
+  if (user) {
+    const existingMembership = await prisma.organizationMember.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId,
+          userId: user.id
+        }
+      }
+    });
+    if (existingMembership) {
+      throw new Error("You are already a member of this organization");
+    }
+  }
+  await OrganizationBillingService.checkLimit(organizationId, "MEMBER");
+  const token = crypto2.randomBytes(32).toString("hex");
+  console.log("Generated token:", token);
+  const tokenHash = hashInvitationToken(token);
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1e3 * 7);
+  const invitation = await prisma.invitation.create({
+    data: {
+      email: payload.email,
+      organizationRole: payload.organizationRole,
+      invitedById: userId,
+      organizationId,
+      token: tokenHash,
+      expiresAt
+    }
+  });
+  if (!invitation) {
+    throw new Error("Fail to create invitation,Please try again");
+  }
+  const invitatedUser = await prisma.user.findUnique({
+    where: {
+      id: userId
+    }
+  });
+  if (!invitatedUser) {
+    throw new Error("Invitated user not found");
+  }
+  const templatePath = path4.join(process.cwd(), "src/app/templates/invitation-mail.ejs");
+  const templateData = {
+    organizationName: organization.name,
+    invitedByName: invitatedUser.name,
+    roleName: payload.organizationRole,
+    invitationUrl: `${config_default.frontend_url}/invitation/accept/${token}`,
+    expiresAt,
+    year: (/* @__PURE__ */ new Date()).getFullYear()
+  };
+  const html = await ejs2.renderFile(templatePath, templateData);
+  await transporter.sendMail({
+    from: `TaskFlow <${config_default.smtp_sender}>`,
+    to: payload.email,
+    subject: `${invitatedUser.name} invited you to join ${organization.name} on TaskFlow`,
+    html
+  });
+  await ActivityService.createActivity({
+    organizationId,
+    actorId: userId,
+    action: ActivityAction.INVITED,
+    entityType: "ORGANIZATION",
+    entityId: organizationId,
+    metadata: { invitedEmail: payload.email, role: payload.organizationRole },
+    description: `Sent invitation to ${payload.email}`
+  });
+};
+var getInvitationByToken = async (token) => {
+  if (!token) {
+    throw new Error("Invitation token is required");
+  }
+  const invitation = await prisma.invitation.findUnique({
+    where: {
+      token: hashInvitationToken(token)
+    },
+    include: {
+      organization: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          logo: true
+        }
+      },
+      invitedBy: {
+        select: {
+          name: true
+        }
+      }
+    }
+  });
+  if (!invitation) {
+    throw new Error("Invalid invitation");
+  }
+  if (invitation.status !== InvitationStatus.PENDING) {
+    throw new Error(`Invitation is ${invitation.status.toLowerCase()}`);
+  }
+  if (invitation.expiresAt < /* @__PURE__ */ new Date()) {
+    await prisma.invitation.update({
+      where: {
+        id: invitation.id
+      },
+      data: {
+        status: InvitationStatus.EXPIRED
+      }
+    });
+    throw new Error("Invitation expired");
+  }
+  return {
+    email: invitation.email,
+    organizationId: invitation.organizationId,
+    organizationRole: invitation.organizationRole,
+    expiresAt: invitation.expiresAt,
+    organization: invitation.organization,
+    invitedBy: invitation.invitedBy
+  };
+};
+var acceptInvitation = async (token, userId) => {
+  if (!userId) {
+    throw new Error("User ID is required");
+  }
+  const invitation = await prisma.invitation.findUnique({
+    where: {
+      token: hashInvitationToken(token)
+    }
+  });
+  if (!invitation) {
+    throw new Error("Invalid invitation");
+  }
+  if (invitation.status !== InvitationStatus.PENDING) {
+    throw new Error(`Invitation is ${invitation.status.toLowerCase()}`);
+  }
+  if (invitation.expiresAt < /* @__PURE__ */ new Date()) {
+    throw new Error("Invitation expired");
+  }
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId
+    }
+  });
+  if (!user) {
+    throw new Error("User not found");
+  }
+  if (user.email.toLowerCase() !== invitation.email.toLowerCase()) {
+    throw new Error("This invitation belongs to a different email address");
+  }
+  const result = await prisma.$transaction(async (tx) => {
+    const membership = await tx.organizationMember.upsert({
+      where: {
+        organizationId_userId: {
+          organizationId: invitation.organizationId,
+          userId
+        }
+      },
+      update: {
+        organizationRole: invitation.organizationRole
+      },
+      create: {
+        organizationId: invitation.organizationId,
+        userId,
+        organizationRole: invitation.organizationRole
+      }
+    });
+    await tx.invitation.update({
+      where: { id: invitation.id },
+      data: {
+        status: InvitationStatus.ACCEPTED,
+        acceptedAt: /* @__PURE__ */ new Date()
+      }
+    });
+    return membership;
+  });
+  await ActivityService.createActivity({
+    organizationId: invitation.organizationId,
+    actorId: userId,
+    action: ActivityAction.MEMBER_ADDED,
+    entityType: "ORGANIZATION",
+    entityId: invitation.organizationId,
+    description: `Accepted invitation and joined organization`
+  });
+  return result;
+};
+var getAllInvitations = async (query) => {
+  const limit = query.limit ? Number(query.limit) : 10;
+  const page = query.page ? Number(query.page) : 1;
+  const skip = (page - 1) * limit;
+  const sortBy = query.sortBy ? query.sortBy : "createdAt";
+  const sortOrder = query.sortOrder ? query.sortOrder : "desc";
+  const addConditions = [];
+  if (query.searchTerm) {
+    addConditions.push({
+      OR: [
+        {
+          email: {
+            contains: query.searchTerm,
+            mode: "insensitive"
+          }
+        }
+      ]
+    });
+  }
+  if (query.email) {
+    addConditions.push({
+      email: query.email
+    });
+  }
+  if (query.organizationRole) {
+    addConditions.push({
+      organizationRole: {
+        equals: query.organizationRole
+      }
+    });
+  }
+  if (query.status) {
+    addConditions.push({
+      status: {
+        equals: query.status
+      }
+    });
+  }
+  if (query.acceptedAt) {
+    addConditions.push({
+      acceptedAt: {
+        gte: query.acceptedAt
+      }
+    });
+  }
+  if (query.expiresAt) {
+    addConditions.push({
+      expiresAt: {
+        gte: query.expiresAt
+      }
+    });
+  }
+  const invitations = await prisma.invitation.findMany({
+    where: {
+      AND: addConditions
+    },
+    skip,
+    take: limit,
+    orderBy: {
+      [sortBy]: sortOrder
+    }
+  });
+  return invitations;
+};
+var getInvitationById = async (invitationId) => {
+  if (!invitationId) {
+    throw new Error("Invitation ID is required");
+  }
+  const invitation = await prisma.invitation.findUnique({
+    where: {
+      id: invitationId
+    },
+    include: {
+      organization: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          logo: true
+        }
+      },
+      invitedBy: {
+        select: {
+          name: true
+        }
+      }
+    }
+  });
+  if (!invitation) {
+    throw new Error("Invitation not found");
+  }
+  return invitation;
+};
+var cencelInvitation = async (invitationId) => {
+  if (!invitationId) {
+    throw new Error("Invitation ID is required");
+  }
+  const invitation = await prisma.invitation.findUnique({
+    where: {
+      id: invitationId
+    }
+  });
+  if (!invitation) {
+    throw new Error("Invitation not found");
+  }
+  if (invitation.status !== InvitationStatus.PENDING) {
+    throw new Error(`Invitation is ${invitation.status.toLowerCase()}`);
+  }
+  const updatedInvitation = await prisma.invitation.update({
+    where: {
+      id: invitationId
+    },
+    data: {
+      status: InvitationStatus.CANCELLED
+    }
+  });
+  return updatedInvitation;
+};
+var deleteInvitation = async (invitationId) => {
+  if (!invitationId) {
+    throw new Error("Invitation ID is required");
+  }
+  const invitation = await prisma.invitation.delete({
+    where: {
+      id: invitationId
+    }
+  });
+  return invitation;
+};
+var InvitationService = {
+  sentInvitations,
+  getInvitationByToken,
+  acceptInvitation,
+  getAllInvitations,
+  getInvitationById,
+  cencelInvitation,
+  deleteInvitation
+};
+
+// src/app/module/invitation/invitation.controller.ts
+var sentInvitations2 = catchAsync(async (req, res, next) => {
+  const body = req.body;
+  const userId = req.user?.userId;
+  const organizationId = req.params.organizationId;
+  const result = await InvitationService.sentInvitations(body, organizationId, userId);
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus5.CREATED,
+    message: "Invitation sent successfully!",
+    data: result
+  });
+});
+var getInvitationByToken2 = catchAsync(async (req, res) => {
+  const result = await InvitationService.getInvitationByToken(req.params.token);
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus5.OK,
+    message: "Invitation is valid",
+    data: result
+  });
+});
+var acceptInvitation2 = catchAsync(async (req, res) => {
+  const result = await InvitationService.acceptInvitation(
+    req.params.token,
+    req.user?.userId
+  );
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus5.OK,
+    message: "Invitation accepted successfully",
+    data: result
+  });
+});
+var getAllInvitations2 = catchAsync(async (req, res) => {
+  const query = req.query;
+  const result = await InvitationService.getAllInvitations(query);
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus5.OK,
+    message: "All invitations fetched successfully",
+    data: result
+  });
+});
+var getInvitationById2 = catchAsync(async (req, res) => {
+  const invitationId = req.params.invitationId;
+  const result = await InvitationService.getInvitationById(invitationId);
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus5.OK,
+    message: "Invitation fetched successfully",
+    data: result
+  });
+});
+var cencelInvitation2 = catchAsync(async (req, res) => {
+  const invitationId = req.params.invitationId;
+  const result = await InvitationService.cencelInvitation(invitationId);
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus5.OK,
+    message: "Invitation cancelled successfully",
+    data: result
+  });
+});
+var deleteInvitation2 = catchAsync(async (req, res) => {
+  const invitationId = req.params.invitationId;
+  const result = await InvitationService.deleteInvitation(invitationId);
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus5.OK,
+    message: "Invitation deleted successfully",
+    data: result
+  });
+});
+var InvitationController = {
+  sentInvitations: sentInvitations2,
+  getInvitationByToken: getInvitationByToken2,
+  acceptInvitation: acceptInvitation2,
+  getAllInvitations: getAllInvitations2,
+  getInvitationById: getInvitationById2,
+  cencelInvitation: cencelInvitation2,
+  deleteInvitation: deleteInvitation2
+};
+
+// src/app/module/invitation/invitation.validation.ts
+import z2 from "zod";
+var sentInvitationZodSchema = z2.object({
+  body: z2.object({
+    email: z2.string().email({ message: "Invalid email address" }),
+    organizationRole: z2.string().min(3, { message: "Role must be at least 3 characters long" })
+  })
+});
+var GetAllInvitationsZodSchema = z2.object({
+  body: z2.object({
+    searchTerm: z2.string().optional(),
+    page: z2.string().optional(),
+    limit: z2.string().optional(),
+    sortOrder: z2.string().optional(),
+    sortBy: z2.string().optional(),
+    email: z2.string().optional(),
+    organizationRole: z2.string().optional(),
+    status: z2.string().optional(),
+    acceptedAt: z2.coerce.date().optional(),
+    expiresAt: z2.coerce.date().optional()
+  }).optional()
+});
+var InvitationValidation = {
+  sentInvitationZodSchema,
+  GetAllInvitationsZodSchema
+};
+
+// src/app/module/invitation/invitation.route.ts
+var router3 = Router3();
+router3.post("/:organizationId/sent-invitation", auth({ permissions: [Permissions.MEMBER_INVITE] }), validationRequest(InvitationValidation.sentInvitationZodSchema), InvitationController.sentInvitations);
+router3.get("/:token", InvitationController.getInvitationByToken);
+router3.post("/:token/accept", auth({ platformRoles: [PlatformRole.USER] }), InvitationController.acceptInvitation);
+router3.get("/:organizationId/invitations", auth({ permissions: [Permissions.MEMBER_READ] }), validationRequest(InvitationValidation.GetAllInvitationsZodSchema), InvitationController.getAllInvitations);
+router3.get("/:organizationId/invitations/:invitationId", auth({ permissions: [Permissions.MEMBER_READ] }), InvitationController.getInvitationById);
+router3.patch("/:organizationId/invitations/:invitationId/cancel", auth({ permissions: [Permissions.MEMBER_REMOVE] }), InvitationController.cencelInvitation);
+var InvitationRouter = router3;
+
+// src/app/module/organization/organization.route.ts
+import Rounter from "express";
+
+// src/app/module/organization/organization.controller.ts
+import httpStatus6 from "http-status";
+
+// src/app/module/organization/organization.service.ts
+var createOrganization = async (payload, fileBuffer, userId) => {
+  const { name, slug, description } = payload;
+  if (!slug) {
+    throw new Error("Slug is required");
+  }
+  if (!name) {
+    throw new Error("Name is required");
+  }
+  if (!userId) {
+    throw new Error("Plaese login to create an organization");
+  }
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId
+    }
+  });
+  if (!user) {
+    throw new Error("User not found");
+  }
+  if (user.emailVerified === false) {
+    throw new Error("Please verify your email before creating an organization");
+  }
+  if (user.status === "BLOCKED") {
+    throw new Error("Your account has been blocked. Please contact support.");
+  }
+  if (user.status === "DELETED" || user.isDeleted === true) {
+    throw new Error("Your account has been deleted. Please contact support.");
+  }
+  if (user.isActive === false) {
+    throw new Error("Your account is not active. Please contact support.");
+  }
+  const isEexistOrganization = await prisma.organization.findFirst({
+    where: {
+      OR: [
+        { name },
+        { slug }
+      ]
+    }
+  });
+  if (isEexistOrganization) {
+    throw new Error("Organization already exists");
+  }
+  let cloudinaryResult;
+  try {
+    cloudinaryResult = await uploadToCloudinary(fileBuffer, "organization-logo");
+  } catch (error) {
+    throw new Error("Fail to upload logo in cloudinary!");
+  }
+  if (!cloudinaryResult) {
+    throw new Error("Does not upload logo in cloudinary,Please try again");
+  }
+  const freePlan = await prisma.plan.findUnique({ where: { name: "FREE" } });
+  if (!freePlan) {
+    throw new Error("Free plan not found in the system. Contact support.");
+  }
+  const { organization, organizationMember } = await prisma.$transaction(async (tx) => {
+    const org = await tx.organization.create({
+      data: {
+        name,
+        slug,
+        description,
+        logo: cloudinaryResult.secure_url,
+        logoPublicId: cloudinaryResult.public_id
+      }
+    });
+    const member = await tx.organizationMember.create({
+      data: {
+        userId,
+        organizationId: org.id,
+        organizationRole: OrganizationRole.ORG_ADMIN
+      }
+    });
+    await tx.subscription.create({
+      data: {
+        organizationId: org.id,
+        planId: freePlan.id,
+        status: "ACTIVE",
+        interval: "MONTHLY",
+        currentPeriodStart: /* @__PURE__ */ new Date(),
+        currentPeriodEnd: new Date((/* @__PURE__ */ new Date()).setMonth((/* @__PURE__ */ new Date()).getMonth() + 120))
+        // 10 years for Free by default
+      }
+    });
+    return { organization: org, organizationMember: member };
+  });
+  if (!organization || !organizationMember) {
+    throw new Error("Fail to create organization and member. Please try again.");
+  }
+  const organizationWithMembers = await prisma.organization.findUnique({
+    where: {
+      id: organization.id
+    },
+    include: {
+      members: true
+    }
+  });
+  if (!organizationWithMembers) {
+    throw new Error("Fail to fetch organization with members,Please try again");
+  }
+  await ActivityService.createActivity({
+    organizationId: organization.id,
+    actorId: userId,
+    action: ActivityAction.CREATED,
+    entityType: "ORGANIZATION",
+    entityId: organization.id,
+    description: `Organization ${organization.name} created`
+  });
+  return { organizationWithMembers };
+};
+var updateLogo = async (fileBuffer, userId, organizationId) => {
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId
+    }
+  });
+  const currentOrganization = await prisma.organization.findUnique({
+    where: {
+      id: organizationId
+    }
+  });
+  if (!currentOrganization) {
+    throw new Error("Organization not found");
+  }
+  if (!user) {
+    throw new Error("User not found");
+  }
+  if (user.emailVerified === false) {
+    throw new Error("Please verify your email before updating organization logo");
+  }
+  if (user.status === "BLOCKED") {
+    throw new Error("Your account has been blocked. Please contact support.");
+  }
+  if (user.status === "DELETED" || user.isDeleted === true) {
+    throw new Error("Your account has been deleted. Please contact support.");
+  }
+  if (user.isActive === false) {
+    throw new Error("Your account is not active. Please contact support.");
+  }
+  let cloudinaryResult;
+  try {
+    cloudinaryResult = await uploadToCloudinary(fileBuffer, "organization-logo");
+  } catch (error) {
+    throw new Error("Fail to upload logo in cloudinary!");
+  }
+  if (!cloudinaryResult) {
+    throw new Error("Does not upload logo in cloudinary,Please try again");
+  }
+  const organization = await prisma.organization.update({
+    where: {
+      id: organizationId
+    },
+    data: {
+      logo: cloudinaryResult.secure_url,
+      logoPublicId: cloudinaryResult.public_id
+    },
+    include: {
+      members: true
+    }
+  });
+  if (currentOrganization.logoPublicId && currentOrganization.logo) {
+    try {
+      await deleteFromCloudinary(currentOrganization.logoPublicId);
+    } catch (error) {
+      console.error("Failed to delete old logo from Cloudinary:", error);
+    }
+  }
+  await ActivityService.createActivity({
+    organizationId: organization.id,
+    actorId: userId,
+    action: ActivityAction.UPDATED,
+    entityType: "ORGANIZATION",
+    entityId: organization.id,
+    description: `Organization logo updated`
+  });
+  return {
+    data: organization
+  };
+};
+var updateOrganizationInfo = async (payload, userId, organizationId) => {
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId
+    }
+  });
+  if (!user) {
+    throw new Error("User not found");
+  }
+  if (user.emailVerified === false) {
+    throw new Error("Please verify your email before updating organization info");
+  }
+  if (user.status === "BLOCKED") {
+    throw new Error("Your account has been blocked. Please contact support.");
+  }
+  if (user.status === "DELETED" || user.isDeleted === true) {
+    throw new Error("Your account has been deleted. Please contact support.");
+  }
+  if (user.isActive === false) {
+    throw new Error("Your account is not active. Please contact support.");
+  }
+  const organization = await prisma.organization.update({
+    where: {
+      id: organizationId
+    },
+    data: {
+      ...payload
+    },
+    include: {
+      members: true
+    }
+  });
+  await ActivityService.createActivity({
+    organizationId: organization.id,
+    actorId: userId,
+    action: ActivityAction.UPDATED,
+    entityType: "ORGANIZATION",
+    entityId: organization.id,
+    description: `Organization info updated`
+  });
+  return { organization };
+};
+var getOrganizationById = async (organizationId) => {
+  const organization = await prisma.organization.findUnique({
+    where: {
+      id: organizationId
+    },
+    include: {
+      members: true,
+      subscription: {
+        include: { plan: true }
+      }
+    }
+  });
+  if (!organization) {
+    throw new Error("Organization not found");
+  }
+  return {
+    data: organization
+  };
+};
+var getAllOrganizations = async (query) => {
+  const limit = query.limit ? Number(query.limit) : 10;
+  const page = query.page ? Number(query.page) : 1;
+  const skip = (page - 1) * limit;
+  const sortBy = query.sortBy ? query.sortBy : "createdAt";
+  const sortOrder = query.sortOrder ? query.sortOrder : "desc";
+  const addConditions = [];
+  if (query.searchTerm) {
+    addConditions.push({
+      OR: [
+        {
+          name: {
+            contains: query.searchTerm,
+            mode: "insensitive"
+          }
+        },
+        {
+          slug: {
+            contains: query.searchTerm,
+            mode: "insensitive"
+          }
+        },
+        {
+          description: {
+            contains: query.searchTerm,
+            mode: "insensitive"
+          }
+        }
+      ]
+    });
+  }
+  if (query.name) {
+    addConditions.push({
+      name: query.name
+    });
+  }
+  if (query.slug) {
+    addConditions.push({
+      slug: query.slug
+    });
+  }
+  if (query.description) {
+    addConditions.push({
+      description: query.description
+    });
+  }
+  const organizations = await prisma.organization.findMany({
+    where: {
+      AND: addConditions
+    },
+    skip,
+    take: limit,
+    orderBy: {
+      [sortBy]: sortOrder
+    },
+    include: {
+      subscription: {
+        include: { plan: true }
+      }
+    }
+  });
+  const totalOrganizations = await prisma.organization.count({
+    where: {
+      AND: addConditions
+    }
+  });
+  const totalPages = Math.ceil(totalOrganizations / limit);
+  return {
+    data: organizations,
+    meta: {
+      page,
+      limit,
+      total: totalOrganizations,
+      totalPages
+    }
+  };
+};
+var getAllOrganizationsForAdmin = async () => {
+  return await prisma.organization.findMany({
+    orderBy: { createdAt: "desc" },
+    include: {
+      subscription: { include: { plan: true } },
+      _count: { select: { members: true, projects: true } }
+    }
+  });
+};
+var deleteOrganization = async (organizationId, userId) => {
+  const organization = await prisma.organization.findUnique({
+    where: {
+      id: organizationId
+    }
+  });
+  if (!organization) {
+    throw new Error("Organization not found");
+  }
+  const deletedOrganization = await prisma.organization.update({
+    where: {
+      id: organizationId
+    },
+    data: {
+      deletedAt: /* @__PURE__ */ new Date()
+    }
+  });
+  await ActivityService.createActivity({
+    organizationId,
+    actorId: userId,
+    action: ActivityAction.DELETED,
+    entityType: "ORGANIZATION",
+    entityId: organizationId,
+    description: `Organization ${organization.name} deleted`
+  });
+  return {
+    data: deletedOrganization
+  };
+};
+var getMembers = async (organizationId, query) => {
+  const limit = query.limit ? Number(query.limit) : 10;
+  const page = query.page ? Number(query.page) : 1;
+  const skip = (page - 1) * limit;
+  const members = await prisma.organizationMember.findMany({
+    where: { organizationId },
+    skip,
+    take: limit,
+    include: {
+      user: {
+        select: { id: true, name: true, email: true, profilePicture: true, status: true }
+      }
+    },
+    orderBy: { joinedAt: "desc" }
+  });
+  const total = await prisma.organizationMember.count({ where: { organizationId } });
+  return {
+    data: members,
+    meta: { page, limit, total, totalPages: Math.ceil(total / limit) }
+  };
+};
+var updateMemberRole = async (organizationId, memberId, role, userId) => {
+  const member = await prisma.organizationMember.findUnique({
+    where: { organizationId_userId: { organizationId, userId: memberId } }
+  });
+  if (!member) {
+    throw new Error("Member not found in organization");
+  }
+  if (member.organizationRole === OrganizationRole.OWNER) {
+    throw new Error("Cannot change the role of an OWNER");
+  }
+  const updatedMember = await prisma.organizationMember.update({
+    where: { organizationId_userId: { organizationId, userId: memberId } },
+    data: { organizationRole: role }
+  });
+  await ActivityService.createActivity({
+    organizationId,
+    actorId: userId,
+    action: ActivityAction.UPDATED,
+    entityType: "ORGANIZATION_MEMBER",
+    entityId: memberId,
+    description: `Member role updated to ${role}`
+  });
+  return { data: updatedMember };
+};
+var removeMember = async (organizationId, memberId, userId) => {
+  const member = await prisma.organizationMember.findUnique({
+    where: { organizationId_userId: { organizationId, userId: memberId } }
+  });
+  if (!member) {
+    throw new Error("Member not found in organization");
+  }
+  if (member.organizationRole === OrganizationRole.OWNER) {
+    throw new Error("Cannot remove the OWNER of the organization");
+  }
+  const removedMember = await prisma.organizationMember.delete({
+    where: { organizationId_userId: { organizationId, userId: memberId } }
+  });
+  await ActivityService.createActivity({
+    organizationId,
+    actorId: userId,
+    action: ActivityAction.MEMBER_REMOVED,
+    entityType: "ORGANIZATION",
+    entityId: organizationId,
+    metadata: { removedUserId: memberId },
+    description: `Member removed from organization`
+  });
+  return { data: removedMember };
+};
+var OrganizationService = {
+  createOrganization,
+  updateLogo,
+  updateOrganizationInfo,
+  getOrganizationById,
+  getAllOrganizations,
+  getAllOrganizationsForAdmin,
+  deleteOrganization,
+  getMembers,
+  updateMemberRole,
+  removeMember
+};
+
+// src/app/module/organization/organization.controller.ts
+var createOrganization2 = catchAsync(async (req, res, next) => {
+  const body = req.body;
+  const payload = req.file;
+  const userId = req.user?.userId;
+  console.log("userId", userId);
+  if (!payload) {
+    throw new Error("No File Provided!");
+  }
+  const result = await OrganizationService.createOrganization(body, payload?.buffer, userId);
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus6.CREATED,
+    message: "Organization created successfully!",
+    data: result
+  });
+});
+var updateLogo2 = catchAsync(async (req, res, next) => {
+  const organizationId = req.params.organizationId;
+  const payload = req.file;
+  const userId = req.user?.userId;
+  if (!payload) {
+    throw new Error("No File Provided!");
+  }
+  const result = await OrganizationService.updateLogo(payload?.buffer, userId, organizationId);
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus6.CREATED,
+    message: "Organization logo updated successfully!",
+    data: result.data
+  });
+});
+var updateOrganizationInfo2 = catchAsync(async (req, res, next) => {
+  const organizationId = req.params.organizationId;
+  const body = req.body;
+  const userId = req.user?.userId;
+  const result = await OrganizationService.updateOrganizationInfo(body, userId, organizationId);
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus6.CREATED,
+    message: "Organization info updated successfully!",
+    data: result
+  });
+});
+var getOrganizationById2 = catchAsync(async (req, res, next) => {
+  const organizationId = req.params.organizationId;
+  const result = await OrganizationService.getOrganizationById(organizationId);
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus6.OK,
+    message: "Organization fetched successfully!",
+    data: result.data
+  });
+});
+var getAllOrganizations2 = catchAsync(async (req, res, next) => {
+  const query = req.query;
+  const result = await OrganizationService.getAllOrganizations(query);
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus6.OK,
+    message: "Organizations fetched successfully!",
+    data: result.data,
+    meta: result.meta
+  });
+});
+var getAllOrganizationsForAdmin2 = catchAsync(async (req, res, next) => {
+  const result = await OrganizationService.getAllOrganizationsForAdmin();
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus6.OK,
+    message: "All organizations fetched successfully",
+    data: result
+  });
+});
+var deleteOrganization2 = catchAsync(async (req, res, next) => {
+  const organizationId = req.params.organizationId;
+  const userId = req.user?.userId;
+  const result = await OrganizationService.deleteOrganization(organizationId, userId);
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus6.OK,
+    message: "Organization deleted successfully!",
+    data: result.data
+  });
+});
+var getMembers2 = catchAsync(async (req, res, next) => {
+  const organizationId = req.params.organizationId;
+  const query = req.query;
+  const result = await OrganizationService.getMembers(organizationId, query);
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus6.OK,
+    message: "Organization members fetched successfully!",
+    data: result.data,
+    meta: result.meta
+  });
+});
+var updateMemberRole2 = catchAsync(async (req, res, next) => {
+  const organizationId = req.params.organizationId;
+  const memberId = req.params.memberId;
+  const userId = req.user?.userId;
+  const { role } = req.body;
+  const result = await OrganizationService.updateMemberRole(organizationId, memberId, role, userId);
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus6.OK,
+    message: "Member role updated successfully!",
+    data: result.data
+  });
+});
+var removeMember2 = catchAsync(async (req, res, next) => {
+  const organizationId = req.params.organizationId;
+  const memberId = req.params.memberId;
+  const userId = req.user?.userId;
+  const result = await OrganizationService.removeMember(organizationId, memberId, userId);
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus6.OK,
+    message: "Member removed successfully!",
+    data: result.data
+  });
+});
+var OrganizationController = {
+  createOrganization: createOrganization2,
+  updateLogo: updateLogo2,
+  updateOrganizationInfo: updateOrganizationInfo2,
+  getOrganizationById: getOrganizationById2,
+  getAllOrganizations: getAllOrganizations2,
+  getAllOrganizationsForAdmin: getAllOrganizationsForAdmin2,
+  deleteOrganization: deleteOrganization2,
+  getMembers: getMembers2,
+  updateMemberRole: updateMemberRole2,
+  removeMember: removeMember2
+};
+
+// src/app/module/organization/organization.validation.ts
+import z3 from "zod";
+var ALLOWED_MULTI_TYPES2 = {
+  image: ["image/jpeg", "image/jpg", "image/png", "image/webp"],
+  pdf: ["application/pdf"],
+  document: [
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  ],
+  audio: ["audio/mpeg", "audio/wav", "audio/mp4"],
+  video: ["video/mp4", "video/quicktime", "video/x-matroska"]
+};
+var singleFileEngine2 = (allowedTypes, maxMB) => {
+  return z3.object({
+    fieldname: z3.string(),
+    originalname: z3.string(),
+    encoding: z3.string(),
+    mimetype: z3.string().refine(
+      (type) => allowedTypes.includes(type),
+      { message: `Invalid format. Expected: ${allowedTypes.map((t) => t.split("/")[1]).join(", ")}` }
+    ),
+    size: z3.number().max(maxMB * 1024 * 1024, `Size exceeds limit of ${maxMB}MB`)
+  });
+};
+var CreateOrganizationSchema = z3.object({
+  body: z3.object({
+    name: z3.string().min(3, { message: "Name must be at least 3 characters long" }),
+    slug: z3.string().min(3, { message: "Slug must be at least 3 characters long" }),
+    description: z3.string().optional()
+  }),
+  file: z3.object({
+    logo: z3.array(singleFileEngine2(ALLOWED_MULTI_TYPES2.image, 10)).max(1, "Only 1 logo allowed").optional()
+  }).optional()
+});
+var UpdateLogoZodSchema = z3.object({
+  file: z3.object({
+    logo: z3.array(singleFileEngine2(ALLOWED_MULTI_TYPES2.image, 10)).max(1, "Only 1 logo allowed").optional()
+  }).optional()
+});
+var UpdateOrganizationInfoZodSchema = z3.object({
+  body: z3.object({
+    name: z3.string().min(3, { message: "Name must be at least 3 characters long" }).optional(),
+    slug: z3.string().min(3, { message: "Slug must be at least 3 characters long" }).optional(),
+    description: z3.string().optional()
+  })
+});
+var GetAllOrganizationZodSchema = z3.object({
+  body: z3.object({
+    searchTerm: z3.string().optional(),
+    page: z3.string().optional(),
+    limit: z3.string().optional(),
+    sortOrder: z3.string().optional(),
+    sortBy: z3.string().optional(),
+    name: z3.string().optional(),
+    slug: z3.string().optional(),
+    description: z3.string().optional()
+  }).optional()
+});
+var OrganizationValidation = {
+  CreateOrganizationSchema,
+  UpdateLogoZodSchema,
+  UpdateOrganizationInfoZodSchema,
+  GetAllOrganizationZodSchema
+};
+
+// src/app/module/organization/organization.route.ts
+var router4 = Rounter();
+router4.post("/create-organization", auth({ platformRoles: [PlatformRole.USER, PlatformRole.SUPER_ADMIN] }), upload.single("logo"), validationRequest(OrganizationValidation.CreateOrganizationSchema), OrganizationController.createOrganization);
+router4.post("/:organizationId/update-logo", auth({ permissions: [Permissions.ORG_UPDATE] }), upload.single("logo"), OrganizationController.updateLogo);
+router4.post("/:organizationId/update-OrganizationInfo", auth({ permissions: [Permissions.ORG_UPDATE] }), validationRequest(OrganizationValidation.UpdateOrganizationInfoZodSchema), OrganizationController.updateOrganizationInfo);
+router4.get("/admin/all", auth({ platformRoles: [PlatformRole.SUPER_ADMIN] }), OrganizationController.getAllOrganizationsForAdmin);
+router4.get("/get-all-organizations", validationRequest(OrganizationValidation.GetAllOrganizationZodSchema), OrganizationController.getAllOrganizations);
+router4.get("/:organizationId", OrganizationController.getOrganizationById);
+router4.delete("/:organizationId", auth({ permissions: [Permissions.ORG_UPDATE] }), OrganizationController.deleteOrganization);
+router4.get("/:organizationId/members", auth({ permissions: [Permissions.MEMBER_READ] }), OrganizationController.getMembers);
+router4.patch("/:organizationId/members/:memberId/role", auth({ permissions: [Permissions.MEMBER_UPDATE] }), OrganizationController.updateMemberRole);
+router4.delete("/:organizationId/members/:memberId", auth({ permissions: [Permissions.MEMBER_REMOVE] }), OrganizationController.removeMember);
+var OrganizationRouter = router4;
+
+// src/app/module/project/project.route.ts
+import Router4 from "express";
+
+// src/app/module/project/project.controller.ts
+import httpStatus7 from "http-status";
+
 // src/app/module/project/project.service.ts
 var createProjectSlug = (name) => {
   const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -3460,9 +3788,13 @@ var deleteProject = async (organizationId, projectId, userId) => {
   if (!existingProject) {
     throw new Error("Project not found");
   }
-  const project = await prisma.project.delete({
+  const project = await prisma.project.update({
     where: {
       id: projectId
+    },
+    data: {
+      status: "ARCHIVED",
+      deletedAt: /* @__PURE__ */ new Date()
     }
   });
   await ActivityService.createActivity({
@@ -3530,7 +3862,7 @@ var assignProjectManager = async (organizationId, projectId, memberId, userId) =
       }
     },
     data: {
-      organizationRole: OrganizationRole2.PROJECT_MANAGER
+      organizationRole: OrganizationRole.PROJECT_MANAGER
     }
   });
   const projectManager = await prisma.projectMember.upsert({
@@ -3615,7 +3947,7 @@ var addMember = async (organizationId, projectId, memberId, userId) => {
       }
     },
     data: {
-      organizationRole: OrganizationRole2.MEMBER
+      organizationRole: OrganizationRole.MEMBER
     }
   });
   const projectMember = await prisma.projectMember.upsert({
@@ -3645,7 +3977,7 @@ var addMember = async (organizationId, projectId, memberId, userId) => {
   });
   return projectMember;
 };
-var removeMember = async (organizationId, projectId, memberId, userId) => {
+var removeMember3 = async (organizationId, projectId, memberId, userId) => {
   if (!organizationId) {
     throw new Error("Organization ID is required");
   }
@@ -3702,7 +4034,7 @@ var ProjectService = {
   deleteProject,
   assignProjectManager,
   addMember,
-  removeMember
+  removeMember: removeMember3
 };
 
 // src/app/module/project/project.controller.ts
@@ -3713,7 +4045,7 @@ var createProject2 = catchAsync(async (req, res, next) => {
   const result = await ProjectService.createProject(organizationId, userId, body);
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus6.CREATED,
+    statusCode: httpStatus7.CREATED,
     message: "Project created successfully!",
     data: result
   });
@@ -3727,7 +4059,7 @@ var getAllProjects2 = catchAsync(async (req, res, next) => {
   );
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus6.OK,
+    statusCode: httpStatus7.OK,
     message: "Projects fetched successfully!",
     data: result.data,
     meta: result.meta
@@ -3743,7 +4075,7 @@ var getProject2 = catchAsync(async (req, res, next) => {
   );
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus6.OK,
+    statusCode: httpStatus7.OK,
     message: "Project fetched successfully!",
     data: result
   });
@@ -3761,7 +4093,7 @@ var updateProject2 = catchAsync(async (req, res, next) => {
   );
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus6.OK,
+    statusCode: httpStatus7.OK,
     message: "Project updated successfully!",
     data: result
   });
@@ -3773,7 +4105,7 @@ var deleteProject2 = catchAsync(async (req, res, next) => {
   const result = await ProjectService.deleteProject(organizationId, projectId, userId);
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus6.OK,
+    statusCode: httpStatus7.OK,
     message: "Project deleted successfully!",
     data: result
   });
@@ -3787,7 +4119,7 @@ var assignProjectManager2 = catchAsync(async (req, res, next) => {
   const result = await ProjectService.assignProjectManager(organizationId, projectId, memberId, userId);
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus6.OK,
+    statusCode: httpStatus7.OK,
     message: "Project manager assigned successfully!",
     data: result
   });
@@ -3805,12 +4137,12 @@ var addMember2 = catchAsync(async (req, res, next) => {
   );
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus6.CREATED,
+    statusCode: httpStatus7.CREATED,
     message: "Project member added successfully!",
     data: result
   });
 });
-var removeMember2 = catchAsync(async (req, res, next) => {
+var removeMember4 = catchAsync(async (req, res, next) => {
   const organizationId = req.params.organizationId;
   const projectId = req.params.projectId;
   const memberId = req.params.userId;
@@ -3823,7 +4155,7 @@ var removeMember2 = catchAsync(async (req, res, next) => {
   );
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus6.OK,
+    statusCode: httpStatus7.OK,
     message: "Project member removed successfully!",
     data: result
   });
@@ -3836,7 +4168,7 @@ var ProjectController = {
   deleteProject: deleteProject2,
   assignProjectManager: assignProjectManager2,
   addMember: addMember2,
-  removeMember: removeMember2
+  removeMember: removeMember4
 };
 
 // src/app/module/project/project.validation.ts
@@ -3889,23 +4221,23 @@ var ProjectValidation = {
 };
 
 // src/app/module/project/project.route.ts
-var router4 = Router3();
-router4.post("/:organizationId/create-project", auth({ permissions: [Permissions.PROJECT_CREATE] }), validationRequest(ProjectValidation.createProjectSchema), ProjectController.createProject);
-router4.get("/:organizationId/getAllprojects", auth({ permissions: [Permissions.PROJECT_READ] }), validationRequest(ProjectValidation.GetAllOrganizationProjectsZodSchema), ProjectController.getAllProjects);
-router4.get("/:organizationId/projects/:projectId", auth({ permissions: [Permissions.PROJECT_READ] }), ProjectController.getProject);
-router4.patch("/:organizationId/projects/:projectId", auth({ permissions: [Permissions.PROJECT_UPDATE] }), validationRequest(ProjectValidation.updateProjectSchema), ProjectController.updateProject);
-router4.delete("/:organizationId/projects/:projectId", auth({ permissions: [Permissions.PROJECT_ARCHIVE] }), ProjectController.deleteProject);
-router4.patch("/:organizationId/projects/:projectId/manager", auth({ permissions: [Permissions.PROJECT_UPDATE] }), validationRequest(ProjectValidation.assignProjectManagerSchema), ProjectController.assignProjectManager);
-router4.patch("/:organizationId/projects/:projectId/members", auth({ permissions: [Permissions.PROJECT_UPDATE] }), validationRequest(ProjectValidation.projectMemberSchema), ProjectController.addMember);
-router4.delete("/:organizationId/projects/:projectId/members/:userId", auth({ permissions: [Permissions.PROJECT_UPDATE] }), ProjectController.removeMember);
-var ProjectRouter = router4;
+var router5 = Router4();
+router5.post("/:organizationId/create-project", auth({ permissions: [Permissions.PROJECT_CREATE] }), validationRequest(ProjectValidation.createProjectSchema), ProjectController.createProject);
+router5.get("/:organizationId/getAllprojects", auth({ permissions: [Permissions.PROJECT_READ] }), validationRequest(ProjectValidation.GetAllOrganizationProjectsZodSchema), ProjectController.getAllProjects);
+router5.get("/:organizationId/projects/:projectId", auth({ permissions: [Permissions.PROJECT_READ] }), ProjectController.getProject);
+router5.patch("/:organizationId/projects/:projectId", auth({ permissions: [Permissions.PROJECT_UPDATE] }), validationRequest(ProjectValidation.updateProjectSchema), ProjectController.updateProject);
+router5.delete("/:organizationId/projects/:projectId", auth({ permissions: [Permissions.PROJECT_ARCHIVE] }), ProjectController.deleteProject);
+router5.patch("/:organizationId/projects/:projectId/manager", auth({ permissions: [Permissions.PROJECT_UPDATE] }), validationRequest(ProjectValidation.assignProjectManagerSchema), ProjectController.assignProjectManager);
+router5.patch("/:organizationId/projects/:projectId/members", auth({ permissions: [Permissions.PROJECT_UPDATE] }), validationRequest(ProjectValidation.projectMemberSchema), ProjectController.addMember);
+router5.delete("/:organizationId/projects/:projectId/members/:userId", auth({ permissions: [Permissions.PROJECT_UPDATE] }), ProjectController.removeMember);
+var ProjectRouter = router5;
 
 // src/app/module/team/team.route.ts
-import { Router as Router4 } from "express";
+import { Router as Router5 } from "express";
 
 // src/app/module/team/team.service.ts
 var createTeam = async (payload, user, organizationId) => {
-  if (user.organizationRole !== OrganizationRole2.ORG_ADMIN) {
+  if (user.organizationRole !== OrganizationRole.ORG_ADMIN) {
     throw new Error("Only organization admins can create teams.");
   }
   const existingTeam = await prisma.team.findUnique({
@@ -3953,6 +4285,7 @@ var createTeam = async (payload, user, organizationId) => {
   if (!existOrganization) {
     throw new Error("Organization not found.");
   }
+  await OrganizationBillingService.checkLimit(organizationId, "TEAM");
   const team = await prisma.team.create({
     data: {
       ...payload,
@@ -4032,7 +4365,8 @@ var getAllTeams = async (query, user, organizationId) => {
     meta: {
       total: totalTeams,
       page,
-      limit
+      limit,
+      totalPages: Math.ceil(totalTeams / limit)
     }
   };
 };
@@ -4063,7 +4397,7 @@ var getTeamById = async (teamId, user, organizationId) => {
   if (!team) {
     throw new Error("Team not found");
   }
-  const isManagerOrAdmin = user.organizationRole === OrganizationRole2.ORG_ADMIN || user.organizationRole === OrganizationRole2.PROJECT_MANAGER;
+  const isManagerOrAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN || user.organizationRole === OrganizationRole.PROJECT_MANAGER;
   if (!isManagerOrAdmin) {
     const isMember = team.members.some((m) => m.userId === user.userId);
     if (!isMember) {
@@ -4079,8 +4413,8 @@ var updateTeam = async (teamId, payload, user, organizationId) => {
   if (!team) {
     throw new Error("Team not found");
   }
-  const isOrgAdmin = user.organizationRole === OrganizationRole2.ORG_ADMIN;
-  const isTeamLead = user.organizationRole === OrganizationRole2.TEAM_LEAD && team.teamLeadId === user.userId;
+  const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN;
+  const isTeamLead = user.organizationRole === OrganizationRole.TEAM_LEAD && team.teamLeadId === user.userId;
   if (!isOrgAdmin && !isTeamLead) {
     throw new Error("You don't have permission to update this team");
   }
@@ -4099,7 +4433,7 @@ var updateTeam = async (teamId, payload, user, organizationId) => {
   return updatedTeam;
 };
 var deleteTeam = async (teamId, user, organizationId) => {
-  if (user.organizationRole !== OrganizationRole2.ORG_ADMIN) {
+  if (user.organizationRole !== OrganizationRole.ORG_ADMIN) {
     throw new Error("Only organization admins can delete teams.");
   }
   const team = await prisma.team.findUnique({
@@ -4120,7 +4454,7 @@ var deleteTeam = async (teamId, user, organizationId) => {
   return team;
 };
 var assignTeamLead = async (teamId, payload, user, organizationId) => {
-  if (user.organizationRole !== OrganizationRole2.ORG_ADMIN) {
+  if (user.organizationRole !== OrganizationRole.ORG_ADMIN) {
     throw new Error("Only organization admins can assign team leads.");
   }
   const team = await prisma.team.findUnique({
@@ -4138,7 +4472,7 @@ var assignTeamLead = async (teamId, payload, user, organizationId) => {
   if (!orgMember) {
     throw new Error("Target user is not a member of this organization");
   }
-  if (orgMember.organizationRole === OrganizationRole2.MEMBER) {
+  if (orgMember.organizationRole === OrganizationRole.MEMBER) {
     throw new Error("Target user must have at least TEAM_LEAD organization role.");
   }
   const existingMember = await prisma.teamMember.findUnique({
@@ -4174,8 +4508,8 @@ var addTeamMember = async (teamId, payload, user, organizationId) => {
     where: { id: teamId, organizationId }
   });
   if (!team) throw new Error("Team not found");
-  const isOrgAdmin = user.organizationRole === OrganizationRole2.ORG_ADMIN;
-  const isTeamLead = user.organizationRole === OrganizationRole2.TEAM_LEAD && team.teamLeadId === user.userId;
+  const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN;
+  const isTeamLead = user.organizationRole === OrganizationRole.TEAM_LEAD && team.teamLeadId === user.userId;
   if (!isOrgAdmin && !isTeamLead) {
     throw new Error("You don't have permission to add members to this team");
   }
@@ -4223,8 +4557,8 @@ var removeTeamMember = async (teamId, targetUserId, user, organizationId) => {
     where: { id: teamId, organizationId }
   });
   if (!team) throw new Error("Team not found");
-  const isOrgAdmin = user.organizationRole === OrganizationRole2.ORG_ADMIN;
-  const isTeamLead = user.organizationRole === OrganizationRole2.TEAM_LEAD && team.teamLeadId === user.userId;
+  const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN;
+  const isTeamLead = user.organizationRole === OrganizationRole.TEAM_LEAD && team.teamLeadId === user.userId;
   if (!isOrgAdmin && !isTeamLead) {
     throw new Error("You don't have permission to remove members from this team");
   }
@@ -4300,12 +4634,12 @@ var TeamService = {
 };
 
 // src/app/module/team/team.controller.ts
-import httpStatus7 from "http-status";
+import httpStatus8 from "http-status";
 var createTeam2 = catchAsync(async (req, res, next) => {
   const result = await TeamService.createTeam(req.body, req.user, req.params.organizationId);
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus7.CREATED,
+    statusCode: httpStatus8.CREATED,
     message: "Team created successfully",
     data: result
   });
@@ -4315,16 +4649,17 @@ var getAllTeams2 = catchAsync(async (req, res, next) => {
   const result = await TeamService.getAllTeams(query, req.user, req.params.organizationId);
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus7.OK,
+    statusCode: httpStatus8.OK,
     message: "Teams retrieved successfully",
-    data: result
+    data: result.data,
+    meta: result.meta
   });
 });
 var getTeamById2 = catchAsync(async (req, res, next) => {
   const result = await TeamService.getTeamById(req.params.teamId, req.user, req.params.organizationId);
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus7.OK,
+    statusCode: httpStatus8.OK,
     message: "Team retrieved successfully",
     data: result
   });
@@ -4333,7 +4668,7 @@ var updateTeam2 = catchAsync(async (req, res, next) => {
   const result = await TeamService.updateTeam(req.params.teamId, req.body, req.user, req.params.organizationId);
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus7.OK,
+    statusCode: httpStatus8.OK,
     message: "Team updated successfully",
     data: result
   });
@@ -4342,7 +4677,7 @@ var deleteTeam2 = catchAsync(async (req, res, next) => {
   const result = await TeamService.deleteTeam(req.params.teamId, req.user, req.params.organizationId);
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus7.OK,
+    statusCode: httpStatus8.OK,
     message: "Team deleted successfully",
     data: result
   });
@@ -4351,7 +4686,7 @@ var addTeamMember2 = catchAsync(async (req, res, next) => {
   const result = await TeamService.addTeamMember(req.params.teamId, req.body, req.user, req.params.organizationId);
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus7.CREATED,
+    statusCode: httpStatus8.CREATED,
     message: "Member added successfully",
     data: result
   });
@@ -4360,7 +4695,7 @@ var removeTeamMember2 = catchAsync(async (req, res, next) => {
   const result = await TeamService.removeTeamMember(req.params.teamId, req.params.userId, req.user, req.params.organizationId);
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus7.OK,
+    statusCode: httpStatus8.OK,
     message: "Member removed successfully",
     data: result
   });
@@ -4369,7 +4704,7 @@ var assignTeamLead2 = catchAsync(async (req, res, next) => {
   const result = await TeamService.assignTeamLead(req.params.teamId, req.body, req.user, req.params.organizationId);
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus7.OK,
+    statusCode: httpStatus8.OK,
     message: "Team lead assigned successfully",
     data: result
   });
@@ -4378,7 +4713,7 @@ var viewTeamMembers2 = catchAsync(async (req, res, next) => {
   const result = await TeamService.viewTeamMembers(req.params.teamId, req.params.organizationId);
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus7.OK,
+    statusCode: httpStatus8.OK,
     message: "Team members retrieved successfully",
     data: result
   });
@@ -4447,23 +4782,23 @@ var TeamValidation = {
 };
 
 // src/app/module/team/team.route.ts
-var router5 = Router4({ mergeParams: true });
-router5.post("/:organizationId/create-teams", auth({ organizationRoles: [OrganizationRole.ORG_ADMIN] }), validationRequest(TeamValidation.createTeamSchema), TeamController.createTeam);
-router5.get("/:organizationId/get-all-teams", auth({ permissions: [Permissions.TEAM_READ] }), TeamController.getAllTeams);
-router5.get("/:organizationId/get-team/:teamId", auth({ permissions: [Permissions.TEAM_READ] }), TeamController.getTeamById);
-router5.patch("/:organizationId/update-team/:teamId", auth({ organizationRoles: [OrganizationRole.ORG_ADMIN, OrganizationRole.TEAM_LEAD] }), validationRequest(TeamValidation.updateTeamSchema), TeamController.updateTeam);
-router5.delete("/:organizationId/delete-team/:teamId", auth({ organizationRoles: [OrganizationRole.ORG_ADMIN] }), TeamController.deleteTeam);
-router5.post("/:organizationId/add-team-leader/:teamId", auth({ organizationRoles: [OrganizationRole.ORG_ADMIN] }), validationRequest(TeamValidation.assignTeamLeadSchema), TeamController.assignTeamLead);
-router5.post("/:organizationId/add-team-member/:teamId", auth({ organizationRoles: [OrganizationRole.ORG_ADMIN, OrganizationRole.TEAM_LEAD] }), validationRequest(TeamValidation.addTeamMemberSchema), TeamController.addTeamMember);
-router5.delete("/:organizationId/:teamId/delete-member/:userId", auth({ organizationRoles: [OrganizationRole.ORG_ADMIN, OrganizationRole.TEAM_LEAD] }), TeamController.removeTeamMember);
-router5.get("/:organizationId/:teamId/view-members", auth({ organizationRoles: ALL_ROLES }), TeamController.viewTeamMembers);
-var TeamRoutes = router5;
+var router6 = Router5({ mergeParams: true });
+router6.post("/:organizationId/create-teams", auth({ permissions: [Permissions.TEAM_CREATE] }), validationRequest(TeamValidation.createTeamSchema), TeamController.createTeam);
+router6.get("/:organizationId/get-all-teams", auth({ permissions: [Permissions.TEAM_READ] }), TeamController.getAllTeams);
+router6.get("/:organizationId/get-team/:teamId", auth({ permissions: [Permissions.TEAM_READ] }), TeamController.getTeamById);
+router6.patch("/:organizationId/update-team/:teamId", auth({ permissions: [Permissions.TEAM_UPDATE] }), validationRequest(TeamValidation.updateTeamSchema), TeamController.updateTeam);
+router6.delete("/:organizationId/delete-team/:teamId", auth({ permissions: [Permissions.TEAM_DELETE] }), TeamController.deleteTeam);
+router6.post("/:organizationId/add-team-leader/:teamId", auth({ permissions: [Permissions.TEAM_UPDATE] }), validationRequest(TeamValidation.assignTeamLeadSchema), TeamController.assignTeamLead);
+router6.post("/:organizationId/add-team-member/:teamId", auth({ permissions: [Permissions.TEAM_UPDATE] }), validationRequest(TeamValidation.addTeamMemberSchema), TeamController.addTeamMember);
+router6.delete("/:organizationId/:teamId/delete-member/:userId", auth({ permissions: [Permissions.TEAM_UPDATE] }), TeamController.removeTeamMember);
+router6.get("/:organizationId/:teamId/view-members", auth({ permissions: [Permissions.TEAM_READ] }), TeamController.viewTeamMembers);
+var TeamRoutes = router6;
 
 // src/app/module/sprint/sprint.route.ts
-import { Router as Router5 } from "express";
+import { Router as Router6 } from "express";
 
 // src/app/module/sprint/sprint.controller.ts
-import httpStatus8 from "http-status";
+import httpStatus9 from "http-status";
 
 // src/app/module/sprint/sprint.service.ts
 var createSprint = async (projectId, payload, user, organizationId) => {
@@ -4492,9 +4827,9 @@ var createSprint = async (projectId, payload, user, organizationId) => {
   if (existUser.status === UserStatus.BLOCKED) {
     throw new Error("User is blocked");
   }
-  const isOrgAdmin = user.organizationRole === OrganizationRole2.ORG_ADMIN;
+  const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN;
   let isProjectManager = false;
-  if (user.organizationRole === OrganizationRole2.PROJECT_MANAGER) {
+  if (user.organizationRole === OrganizationRole.PROJECT_MANAGER) {
     const membership = await prisma.projectMember.findUnique({
       where: {
         projectId_userId: {
@@ -4537,7 +4872,7 @@ var createSprint = async (projectId, payload, user, organizationId) => {
   });
   return sprint;
 };
-var getAllSprints = async (projectId, user, organizationId) => {
+var getAllSprints = async (projectId, user, organizationId, query) => {
   if (!organizationId) {
     throw new Error("Organization ID is required");
   }
@@ -4547,15 +4882,20 @@ var getAllSprints = async (projectId, user, organizationId) => {
   if (!project) {
     throw new Error("Project not found");
   }
+  const limit = query.limit ? Number(query.limit) : 10;
+  const page = query.page ? Number(query.page) : 1;
+  const skip = (page - 1) * limit;
+  const total = await prisma.sprint.count({ where: { projectId } });
   const sprints = await prisma.sprint.findMany({
-    where: {
-      projectId
-    },
-    orderBy: {
-      createdAt: "desc"
-    }
+    where: { projectId },
+    skip,
+    take: limit,
+    orderBy: { createdAt: "desc" }
   });
-  return sprints;
+  return {
+    data: sprints,
+    meta: { page, limit, total, totalPages: Math.ceil(total / limit) }
+  };
 };
 var getSrintById = async (projectId, sprintId, user, organizationId) => {
   if (!organizationId) {
@@ -4605,9 +4945,9 @@ var updateSprint = async (projectId, sprintId, payload, user, organizationId) =>
   if (existUser.isActive === false) {
     throw new Error("User is inactive");
   }
-  const isOrgAdmin = user.organizationRole === OrganizationRole2.ORG_ADMIN;
+  const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN;
   let isProjectManager = false;
-  if (user.organizationRole === OrganizationRole2.PROJECT_MANAGER) {
+  if (user.organizationRole === OrganizationRole.PROJECT_MANAGER) {
     const membership = await prisma.projectMember.findUnique({
       where: {
         projectId_userId: {
@@ -4698,9 +5038,9 @@ var deleteSprint = async (projectId, sprintId, user, organizationId) => {
   if (existUser.isActive === false) {
     throw new Error("User is inactive");
   }
-  const isOrgAdmin = user.organizationRole === OrganizationRole2.ORG_ADMIN;
+  const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN;
   let isProjectManager = false;
-  if (user.organizationRole === OrganizationRole2.PROJECT_MANAGER) {
+  if (user.organizationRole === OrganizationRole.PROJECT_MANAGER) {
     const membership = await prisma.projectMember.findUnique({
       where: {
         projectId_userId: {
@@ -4760,12 +5100,58 @@ var deleteSprint = async (projectId, sprintId, user, organizationId) => {
   });
   return result;
 };
+var completeSprint = async (projectId, sprintId, user, organizationId) => {
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+  const project = await prisma.project.findUnique({
+    where: { id: projectId, organizationId }
+  });
+  if (!project) {
+    throw new Error("Project not found");
+  }
+  const sprint = await prisma.sprint.findUnique({
+    where: { id: sprintId, projectId }
+  });
+  if (!sprint) {
+    throw new Error("Sprint not found");
+  }
+  if (sprint.status === SprintStatus.COMPLETED) {
+    throw new Error("Sprint is already completed");
+  }
+  const result = await prisma.$transaction(async (tx) => {
+    const updatedSprint = await tx.sprint.update({
+      where: { id: sprintId },
+      data: { status: SprintStatus.COMPLETED, endDate: /* @__PURE__ */ new Date() }
+    });
+    await tx.task.updateMany({
+      where: {
+        sprintId,
+        status: { not: "DONE" }
+      },
+      data: {
+        sprintId: null
+      }
+    });
+    return updatedSprint;
+  });
+  await ActivityService.createActivity({
+    organizationId,
+    actorId: user.userId,
+    action: ActivityAction.SPRINT_COMPLETED,
+    entityType: "SPRINT",
+    entityId: sprintId,
+    description: `Sprint ${sprint.name} completed`
+  });
+  return result;
+};
 var SprintService = {
   createSprint,
   getSrintById,
   updateSprint,
   deleteSprint,
-  getAllSprints
+  getAllSprints,
+  completeSprint
 };
 
 // src/app/module/sprint/sprint.controller.ts
@@ -4773,25 +5159,26 @@ var createSprint2 = catchAsync(async (req, res) => {
   const result = await SprintService.createSprint(req.params.projectId, req.body, req.user, req.params.organizationId);
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus8.CREATED,
+    statusCode: httpStatus9.CREATED,
     message: "Sprint created successfully",
     data: result
   });
 });
 var getAllSprints2 = catchAsync(async (req, res) => {
-  const result = await SprintService.getAllSprints(req.params.projectId, req.user, req.params.organizationId);
+  const result = await SprintService.getAllSprints(req.params.projectId, req.user, req.params.organizationId, req.query);
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus8.OK,
+    statusCode: httpStatus9.OK,
     message: "Sprints retrieved successfully",
-    data: result
+    data: result.data,
+    meta: result.meta
   });
 });
 var getSprintById = catchAsync(async (req, res) => {
   const result = await SprintService.getSrintById(req.params.projectId, req.params.sprintId, req.user, req.params.organizationId);
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus8.OK,
+    statusCode: httpStatus9.OK,
     message: "Sprint retrieved successfully",
     data: result
   });
@@ -4800,7 +5187,7 @@ var updateSprint2 = catchAsync(async (req, res) => {
   const result = await SprintService.updateSprint(req.params.projectId, req.params.sprintId, req.body, req.user, req.params.organizationId);
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus8.OK,
+    statusCode: httpStatus9.OK,
     message: "Sprint updated successfully",
     data: result
   });
@@ -4809,8 +5196,17 @@ var deleteSprint2 = catchAsync(async (req, res) => {
   const result = await SprintService.deleteSprint(req.params.projectId, req.params.sprintId, req.user, req.params.organizationId);
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus8.OK,
+    statusCode: httpStatus9.OK,
     message: "Sprint deleted successfully",
+    data: result
+  });
+});
+var completeSprint2 = catchAsync(async (req, res) => {
+  const result = await SprintService.completeSprint(req.params.projectId, req.params.sprintId, req.user, req.params.organizationId);
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus9.OK,
+    message: "Sprint completed successfully",
     data: result
   });
 });
@@ -4819,7 +5215,8 @@ var SprintController = {
   getAllSprints: getAllSprints2,
   getSprintById,
   updateSprint: updateSprint2,
-  deleteSprint: deleteSprint2
+  deleteSprint: deleteSprint2,
+  completeSprint: completeSprint2
 };
 
 // src/app/module/sprint/sprint.validation.ts
@@ -4847,16 +5244,64 @@ var SprintValidation = {
 };
 
 // src/app/module/sprint/sprint.route.ts
-var router6 = Router5({ mergeParams: true });
-router6.post("/organizations/:organizationId/projects/:projectId/create-sprint", auth({ permissions: [Permissions.SPRINT_CREATE] }), validationRequest(SprintValidation.createSprintZodSchema), SprintController.createSprint);
-router6.get("/organizations/:organizationId/projects/:projectId/get-all-sprints", auth({ permissions: [Permissions.SPRINT_READ] }), SprintController.getAllSprints);
-router6.get("/organizations/:organizationId/projects/:projectId/get-sprint/:sprintId", auth({ permissions: [Permissions.SPRINT_READ] }), SprintController.getSprintById);
-router6.patch("/organizations/:organizationId/projects/:projectId/update-sprint/:sprintId", auth({ permissions: [Permissions.SPRINT_UPDATE] }), validationRequest(SprintValidation.updateSprintZodSchema), SprintController.updateSprint);
-router6.delete("/organizations/:organizationId/projects/:projectId/delete-sprint/:sprintId", auth({ permissions: [Permissions.SPRINT_UPDATE] }), SprintController.deleteSprint);
-var SprintRoutes = router6;
+var router7 = Router6({ mergeParams: true });
+router7.post("/organizations/:organizationId/projects/:projectId/create-sprint", auth({ permissions: [Permissions.SPRINT_CREATE] }), validationRequest(SprintValidation.createSprintZodSchema), SprintController.createSprint);
+router7.get("/organizations/:organizationId/projects/:projectId/get-all-sprints", auth({ permissions: [Permissions.SPRINT_READ] }), SprintController.getAllSprints);
+router7.get("/organizations/:organizationId/projects/:projectId/get-sprint/:sprintId", auth({ permissions: [Permissions.SPRINT_READ] }), SprintController.getSprintById);
+router7.patch("/organizations/:organizationId/projects/:projectId/update-sprint/:sprintId", auth({ permissions: [Permissions.SPRINT_UPDATE] }), validationRequest(SprintValidation.updateSprintZodSchema), SprintController.updateSprint);
+router7.delete("/organizations/:organizationId/projects/:projectId/delete-sprint/:sprintId", auth({ permissions: [Permissions.SPRINT_UPDATE] }), SprintController.deleteSprint);
+router7.post("/organizations/:organizationId/projects/:projectId/complete-sprint/:sprintId", auth({ permissions: [Permissions.SPRINT_UPDATE] }), SprintController.completeSprint);
+var SprintRoutes = router7;
 
 // src/app/module/task/task.route.ts
-import { Router as Router6 } from "express";
+import { Router as Router7 } from "express";
+
+// src/app/module/notification/notification.service.ts
+var NotificationService = class {
+  static async createNotification(payload) {
+    try {
+      return await prisma.notification.create({
+        data: {
+          ...payload,
+          metadata: payload.metadata ? JSON.parse(JSON.stringify(payload.metadata)) : void 0
+        }
+      });
+    } catch (error) {
+      console.error("Failed to create notification", error);
+    }
+  }
+  static async getMyNotifications(organizationId, user) {
+    return await prisma.notification.findMany({
+      where: { organizationId, userId: user.userId },
+      orderBy: { createdAt: "desc" },
+      take: 100
+    });
+  }
+  static async markAsRead(organizationId, notificationIds, user) {
+    return await prisma.notification.updateMany({
+      where: {
+        id: { in: notificationIds },
+        userId: user.userId,
+        organizationId
+      },
+      data: {
+        readAt: /* @__PURE__ */ new Date()
+      }
+    });
+  }
+  static async markAllAsRead(organizationId, user) {
+    return await prisma.notification.updateMany({
+      where: {
+        userId: user.userId,
+        organizationId,
+        readAt: null
+      },
+      data: {
+        readAt: /* @__PURE__ */ new Date()
+      }
+    });
+  }
+};
 
 // src/app/module/task/task.service.ts
 var TaskService = class {
@@ -4867,9 +5312,9 @@ var TaskService = class {
     if (!project) {
       throw new Error("Project not found");
     }
-    const isOrgAdmin = user.organizationRole === OrganizationRole2.ORG_ADMIN;
+    const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN;
     let isProjectManager = false;
-    if (user.organizationRole === OrganizationRole2.PROJECT_MANAGER) {
+    if (user.organizationRole === OrganizationRole.PROJECT_MANAGER) {
       const membership = await prisma.projectMember.findUnique({
         where: { projectId_userId: { projectId, userId: user.userId } }
       });
@@ -4933,24 +5378,76 @@ var TaskService = class {
         metadata: { assigneeId: payload.assigneeId },
         description: `Task assigned upon creation`
       });
+      await NotificationService.createNotification({
+        userId: payload.assigneeId,
+        organizationId,
+        title: "New Task Assigned",
+        content: `You have been assigned to task: ${task.title}`,
+        link: `/projects/${projectId}/tasks/${task.id}`
+      });
     }
     return task;
   }
-  static async getAllTasks(projectId, user, organizationId) {
+  static async getAllTasks(projectId, user, organizationId, query) {
     await this.verifyProjectAccess(projectId, organizationId, user);
-    return await prisma.task.findMany({
+    const limit = query.limit ? Number(query.limit) : 10;
+    const page = query.page ? Number(query.page) : 1;
+    const skip = (page - 1) * limit;
+    const total = await prisma.task.count({ where: { projectId } });
+    const tasks = await prisma.task.findMany({
       where: { projectId },
+      skip,
+      take: limit,
       orderBy: { createdAt: "desc" },
       include: {
         assignee: { select: { id: true, name: true, email: true } }
       }
     });
+    return {
+      data: tasks,
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) }
+    };
+  }
+  static async getAllTasksForOrganization(organizationId, user, query) {
+    const limit = query.limit ? Number(query.limit) : 50;
+    const page = query.page ? Number(query.page) : 1;
+    const skip = (page - 1) * limit;
+    const total = await prisma.task.count({ where: { organizationId } });
+    const tasks = await prisma.task.findMany({
+      where: { organizationId },
+      skip,
+      take: limit,
+      orderBy: { createdAt: "desc" },
+      include: {
+        project: { select: { id: true, name: true } },
+        assignee: { select: { id: true, name: true, email: true } }
+      }
+    });
+    return {
+      data: tasks,
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) }
+    };
   }
   static async getTaskById(projectId, taskId, user, organizationId) {
     await this.verifyProjectAccess(projectId, organizationId, user);
     const task = await prisma.task.findUnique({
       where: { id: taskId, projectId },
       include: {
+        assignee: { select: { id: true, name: true, email: true } },
+        createdBy: { select: { id: true, name: true } },
+        subtasks: true
+      }
+    });
+    if (!task) {
+      throw new Error("Task not found");
+    }
+    return task;
+  }
+  static async getTaskByIdForOrganization(taskId, user, organizationId) {
+    const task = await prisma.task.findUnique({
+      where: { id: taskId, organizationId },
+      include: {
+        project: { select: { id: true, name: true } },
         assignee: { select: { id: true, name: true, email: true } },
         createdBy: { select: { id: true, name: true } },
         subtasks: true
@@ -4968,6 +5465,20 @@ var TaskService = class {
     });
     if (!task) {
       throw new Error("Task not found");
+    }
+    if (payload.status && payload.status !== task.status) {
+      const allowedTransitions = {
+        "TODO": ["IN_PROGRESS", "CANCELLED"],
+        "IN_PROGRESS": ["IN_REVIEW", "BLOCKED", "CANCELLED"],
+        "IN_REVIEW": ["DONE", "IN_PROGRESS", "CANCELLED"],
+        "BLOCKED": ["IN_PROGRESS", "CANCELLED"],
+        "DONE": []
+        // Terminal state
+      };
+      const validNextStates = allowedTransitions[task.status] || [];
+      if (!validNextStates.includes(payload.status)) {
+        throw new Error(`Invalid status transition from ${task.status} to ${payload.status}`);
+      }
     }
     const isAssignee = task.assigneeId === user.userId;
     const canManage = isOrgAdmin || isProjectManager;
@@ -5032,6 +5543,15 @@ var TaskService = class {
         metadata: { newAssigneeId: payload.assigneeId, oldAssigneeId: task.assigneeId },
         description: `Task assignment changed`
       });
+      if (payload.assigneeId) {
+        await NotificationService.createNotification({
+          userId: payload.assigneeId,
+          organizationId,
+          title: "Task Assigned",
+          content: `You have been assigned to task: ${task.title}`,
+          link: `/projects/${projectId}/tasks/${task.id}`
+        });
+      }
     }
     return updatedTask;
   }
@@ -5062,31 +5582,41 @@ var TaskService = class {
 };
 
 // src/app/module/task/task.controller.ts
-import httpStatus9 from "http-status";
+import httpStatus10 from "http-status";
 var createTask = catchAsync(async (req, res) => {
   const result = await TaskService.createTask(req.params.projectId, req.body, req.user, req.params.organizationId);
-  sendResponse(res, { success: true, statusCode: httpStatus9.CREATED, message: "Task created successfully", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus10.CREATED, message: "Task created successfully", data: result });
 });
 var getAllTasks = catchAsync(async (req, res) => {
-  const result = await TaskService.getAllTasks(req.params.projectId, req.user, req.params.organizationId);
-  sendResponse(res, { success: true, statusCode: httpStatus9.OK, message: "Tasks retrieved successfully", data: result });
+  const result = await TaskService.getAllTasks(req.params.projectId, req.user, req.params.organizationId, req.query);
+  sendResponse(res, { success: true, statusCode: httpStatus10.OK, message: "Tasks retrieved successfully", data: result.data, meta: result.meta });
+});
+var getAllTasksForOrganization = catchAsync(async (req, res) => {
+  const result = await TaskService.getAllTasksForOrganization(req.params.organizationId, req.user, req.query);
+  sendResponse(res, { success: true, statusCode: httpStatus10.OK, message: "Tasks retrieved successfully", data: result.data, meta: result.meta });
 });
 var getTaskById = catchAsync(async (req, res) => {
   const result = await TaskService.getTaskById(req.params.projectId, req.params.taskId, req.user, req.params.organizationId);
-  sendResponse(res, { success: true, statusCode: httpStatus9.OK, message: "Task retrieved successfully", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus10.OK, message: "Task retrieved successfully", data: result });
+});
+var getTaskByIdForOrganization = catchAsync(async (req, res) => {
+  const result = await TaskService.getTaskByIdForOrganization(req.params.taskId, req.user, req.params.organizationId);
+  sendResponse(res, { success: true, statusCode: httpStatus10.OK, message: "Task retrieved successfully", data: result });
 });
 var updateTask = catchAsync(async (req, res) => {
   const result = await TaskService.updateTask(req.params.projectId, req.params.taskId, req.body, req.user, req.params.organizationId);
-  sendResponse(res, { success: true, statusCode: httpStatus9.OK, message: "Task updated successfully", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus10.OK, message: "Task updated successfully", data: result });
 });
 var deleteTask = catchAsync(async (req, res) => {
   const result = await TaskService.deleteTask(req.params.projectId, req.params.taskId, req.user, req.params.organizationId);
-  sendResponse(res, { success: true, statusCode: httpStatus9.OK, message: "Task deleted successfully", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus10.OK, message: "Task deleted successfully", data: result });
 });
 var TaskController = {
   createTask,
   getAllTasks,
+  getAllTasksForOrganization,
   getTaskById,
+  getTaskByIdForOrganization,
   updateTask,
   deleteTask
 };
@@ -5123,21 +5653,23 @@ var updateTaskSchema = z7.object({
 });
 
 // src/app/module/task/task.route.ts
-var router7 = Router6({ mergeParams: true });
-router7.post("/organizations/:organizationId/projects/:projectId/create-tasks", auth({ permissions: [Permissions.TASK_CREATE] }), validationRequest(createTaskSchema), TaskController.createTask);
-router7.get("/organizations/:organizationId/projects/:projectId/get-all-tasks", auth({ permissions: [Permissions.TASK_READ] }), TaskController.getAllTasks);
-router7.get("/organizations/:organizationId/projects/:projectId/get-task/:taskId", auth({ permissions: [Permissions.TASK_READ] }), TaskController.getTaskById);
-router7.patch("/organizations/:organizationId/projects/:projectId/update-task/:taskId", auth({ permissions: [Permissions.TASK_UPDATE] }), validationRequest(updateTaskSchema), TaskController.updateTask);
-router7.delete("/organizations/:organizationId/projects/:projectId/delete-task/:taskId", auth({ permissions: [Permissions.TASK_DELETE] }), TaskController.deleteTask);
-var TaskRoutes = router7;
+var router8 = Router7({ mergeParams: true });
+router8.post("/organizations/:organizationId/projects/:projectId/create-tasks", auth({ permissions: [Permissions.TASK_CREATE] }), validationRequest(createTaskSchema), TaskController.createTask);
+router8.get("/organizations/:organizationId/get-all-tasks", auth({ permissions: [Permissions.TASK_READ] }), TaskController.getAllTasksForOrganization);
+router8.get("/organizations/:organizationId/get-task/:taskId", auth({ permissions: [Permissions.TASK_READ] }), TaskController.getTaskByIdForOrganization);
+router8.get("/organizations/:organizationId/projects/:projectId/get-all-tasks", auth({ permissions: [Permissions.TASK_READ] }), TaskController.getAllTasks);
+router8.get("/organizations/:organizationId/projects/:projectId/get-task/:taskId", auth({ permissions: [Permissions.TASK_READ] }), TaskController.getTaskById);
+router8.patch("/organizations/:organizationId/projects/:projectId/update-task/:taskId", auth({ permissions: [Permissions.TASK_UPDATE] }), validationRequest(updateTaskSchema), TaskController.updateTask);
+router8.delete("/organizations/:organizationId/projects/:projectId/delete-task/:taskId", auth({ permissions: [Permissions.TASK_DELETE] }), TaskController.deleteTask);
+var TaskRoutes = router8;
 
 // src/app/module/label/label.route.ts
-import { Router as Router7 } from "express";
+import { Router as Router8 } from "express";
 
 // src/app/module/label/label.service.ts
 var LabelService = class {
   static async createLabel(organizationId, payload, user) {
-    if (user.organizationRole !== OrganizationRole2.ORG_ADMIN && user.organizationRole !== OrganizationRole2.PROJECT_MANAGER) {
+    if (user.organizationRole !== OrganizationRole.ORG_ADMIN && user.organizationRole !== OrganizationRole.PROJECT_MANAGER) {
       throw new Error("Only admins and project managers can create labels");
     }
     const existingLabel = await prisma.label.findUnique({
@@ -5160,7 +5692,7 @@ var LabelService = class {
     });
   }
   static async updateLabel(organizationId, labelId, payload, user) {
-    if (user.organizationRole !== OrganizationRole2.ORG_ADMIN && user.organizationRole !== OrganizationRole2.PROJECT_MANAGER) {
+    if (user.organizationRole !== OrganizationRole.ORG_ADMIN && user.organizationRole !== OrganizationRole.PROJECT_MANAGER) {
       throw new Error("Only admins and project managers can update labels");
     }
     const label = await prisma.label.findUnique({
@@ -5181,7 +5713,7 @@ var LabelService = class {
     });
   }
   static async deleteLabel(organizationId, labelId, user) {
-    if (user.organizationRole !== OrganizationRole2.ORG_ADMIN && user.organizationRole !== OrganizationRole2.PROJECT_MANAGER) {
+    if (user.organizationRole !== OrganizationRole.ORG_ADMIN && user.organizationRole !== OrganizationRole.PROJECT_MANAGER) {
       throw new Error("Only admins and project managers can delete labels");
     }
     const label = await prisma.label.findUnique({
@@ -5205,9 +5737,9 @@ var LabelService = class {
     if (task.project.organizationId !== organizationId) {
       throw new Error("Task does not belong to this organization");
     }
-    const isOrgAdmin = user.organizationRole === OrganizationRole2.ORG_ADMIN;
+    const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN;
     let isProjectManager = false;
-    if (user.organizationRole === OrganizationRole2.PROJECT_MANAGER) {
+    if (user.organizationRole === OrganizationRole.PROJECT_MANAGER) {
       const membership = await prisma.projectMember.findUnique({
         where: { projectId_userId: { projectId: task.projectId, userId: user.userId } }
       });
@@ -5240,9 +5772,9 @@ var LabelService = class {
     if (task.project.organizationId !== organizationId) {
       throw new Error("Task does not belong to this organization");
     }
-    const isOrgAdmin = user.organizationRole === OrganizationRole2.ORG_ADMIN;
+    const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN;
     let isProjectManager = false;
-    if (user.organizationRole === OrganizationRole2.PROJECT_MANAGER) {
+    if (user.organizationRole === OrganizationRole.PROJECT_MANAGER) {
       const membership = await prisma.projectMember.findUnique({
         where: { projectId_userId: { projectId: task.projectId, userId: user.userId } }
       });
@@ -5268,30 +5800,30 @@ var LabelService = class {
 };
 
 // src/app/module/label/label.controller.ts
-import httpStatus10 from "http-status";
+import httpStatus11 from "http-status";
 var createLabel = catchAsync(async (req, res) => {
   const result = await LabelService.createLabel(req.params.organizationId, req.body, req.user);
-  sendResponse(res, { success: true, statusCode: httpStatus10.CREATED, message: "Label created successfully", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus11.CREATED, message: "Label created successfully", data: result });
 });
 var getAllLabels = catchAsync(async (req, res) => {
   const result = await LabelService.getAllLabels(req.params.organizationId);
-  sendResponse(res, { success: true, statusCode: httpStatus10.OK, message: "Labels retrieved successfully", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus11.OK, message: "Labels retrieved successfully", data: result });
 });
 var updateLabel = catchAsync(async (req, res) => {
   const result = await LabelService.updateLabel(req.params.organizationId, req.params.labelId, req.body, req.user);
-  sendResponse(res, { success: true, statusCode: httpStatus10.OK, message: "Label updated successfully", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus11.OK, message: "Label updated successfully", data: result });
 });
 var deleteLabel = catchAsync(async (req, res) => {
   const result = await LabelService.deleteLabel(req.params.organizationId, req.params.labelId, req.user);
-  sendResponse(res, { success: true, statusCode: httpStatus10.OK, message: "Label deleted successfully", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus11.OK, message: "Label deleted successfully", data: result });
 });
 var assignLabel = catchAsync(async (req, res) => {
   const result = await LabelService.assignLabelToTask(req.params.organizationId, req.params.labelId, req.body, req.user);
-  sendResponse(res, { success: true, statusCode: httpStatus10.CREATED, message: "Label assigned successfully", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus11.CREATED, message: "Label assigned successfully", data: result });
 });
 var removeLabel = catchAsync(async (req, res) => {
   const result = await LabelService.removeLabelFromTask(req.params.organizationId, req.params.labelId, req.params.taskId, req.user);
-  sendResponse(res, { success: true, statusCode: httpStatus10.OK, message: "Label removed successfully", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus11.OK, message: "Label removed successfully", data: result });
 });
 var LabelController = {
   createLabel,
@@ -5323,17 +5855,17 @@ var assignLabelSchema = z8.object({
 });
 
 // src/app/module/label/label.route.ts
-var router8 = Router7({ mergeParams: true });
-router8.post("/organizations/:organizationId/create-labels", auth({ permissions: [Permissions.PROJECT_UPDATE] }), validationRequest(createLabelSchema), LabelController.createLabel);
-router8.get("/organizations/:organizationId/get-all-labels", auth({ permissions: [Permissions.PROJECT_READ] }), LabelController.getAllLabels);
-router8.patch("/organizations/:organizationId/update-label/:labelId", auth({ permissions: [Permissions.PROJECT_UPDATE] }), validationRequest(updateLabelSchema), LabelController.updateLabel);
-router8.delete("/organizations/:organizationId/labels/:labelId", auth({ permissions: [Permissions.PROJECT_UPDATE] }), LabelController.deleteLabel);
-router8.post("/organizations/:organizationId/labels/:labelId/assign", auth({ permissions: [Permissions.TASK_UPDATE] }), validationRequest(assignLabelSchema), LabelController.assignLabel);
-router8.delete("/organizations/:organizationId/labels/:labelId/tasks/:taskId/remove", auth({ permissions: [Permissions.TASK_UPDATE] }), LabelController.removeLabel);
-var LabelRoutes = router8;
+var router9 = Router8({ mergeParams: true });
+router9.post("/organizations/:organizationId/create-labels", auth({ permissions: [Permissions.PROJECT_UPDATE] }), validationRequest(createLabelSchema), LabelController.createLabel);
+router9.get("/organizations/:organizationId/get-all-labels", auth({ permissions: [Permissions.PROJECT_READ] }), LabelController.getAllLabels);
+router9.patch("/organizations/:organizationId/update-label/:labelId", auth({ permissions: [Permissions.PROJECT_UPDATE] }), validationRequest(updateLabelSchema), LabelController.updateLabel);
+router9.delete("/organizations/:organizationId/labels/:labelId", auth({ permissions: [Permissions.PROJECT_UPDATE] }), LabelController.deleteLabel);
+router9.post("/organizations/:organizationId/labels/:labelId/assign", auth({ permissions: [Permissions.TASK_UPDATE] }), validationRequest(assignLabelSchema), LabelController.assignLabel);
+router9.delete("/organizations/:organizationId/labels/:labelId/tasks/:taskId/remove", auth({ permissions: [Permissions.TASK_UPDATE] }), LabelController.removeLabel);
+var LabelRoutes = router9;
 
 // src/app/module/comment/comment.route.ts
-import { Router as Router8 } from "express";
+import { Router as Router9 } from "express";
 
 // src/app/module/comment/comment.service.ts
 var CommentService = class {
@@ -5346,9 +5878,9 @@ var CommentService = class {
     if (task.project.organizationId !== organizationId) {
       throw new Error("Task does not belong to this organization");
     }
-    const isOrgAdmin = user.organizationRole === OrganizationRole2.ORG_ADMIN;
+    const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN;
     let isProjectManager = false;
-    if (user.organizationRole === OrganizationRole2.PROJECT_MANAGER) {
+    if (user.organizationRole === OrganizationRole.PROJECT_MANAGER) {
       const membership = await prisma.projectMember.findUnique({
         where: { projectId_userId: { projectId: task.projectId, userId: user.userId } }
       });
@@ -5429,22 +5961,22 @@ var CommentService = class {
 };
 
 // src/app/module/comment/comment.controller.ts
-import httpStatus11 from "http-status";
+import httpStatus12 from "http-status";
 var createComment = catchAsync(async (req, res) => {
   const result = await CommentService.createComment(req.params.taskId, req.body, req.user, req.params.organizationId);
-  sendResponse(res, { success: true, statusCode: httpStatus11.CREATED, message: "Comment created successfully", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus12.CREATED, message: "Comment created successfully", data: result });
 });
 var getComments = catchAsync(async (req, res) => {
   const result = await CommentService.getComments(req.params.taskId, req.user, req.params.organizationId);
-  sendResponse(res, { success: true, statusCode: httpStatus11.OK, message: "Comments retrieved successfully", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus12.OK, message: "Comments retrieved successfully", data: result });
 });
 var updateComment = catchAsync(async (req, res) => {
   const result = await CommentService.updateComment(req.params.commentId, req.body, req.user, req.params.organizationId);
-  sendResponse(res, { success: true, statusCode: httpStatus11.OK, message: "Comment updated successfully", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus12.OK, message: "Comment updated successfully", data: result });
 });
 var deleteComment = catchAsync(async (req, res) => {
   const result = await CommentService.deleteComment(req.params.commentId, req.user, req.params.organizationId);
-  sendResponse(res, { success: true, statusCode: httpStatus11.OK, message: "Comment deleted successfully", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus12.OK, message: "Comment deleted successfully", data: result });
 });
 var CommentController = {
   createComment,
@@ -5467,15 +5999,15 @@ var updateCommentSchema = z9.object({
 });
 
 // src/app/module/comment/comment.route.ts
-var router9 = Router8({ mergeParams: true });
-router9.post("/organizations/:organizationId/projects/:projectId/tasks/:taskId/create-comments", auth({ permissions: [Permissions.COMMENT_CREATE] }), validationRequest(createCommentSchema), CommentController.createComment);
-router9.get("/organizations/:organizationId/projects/:projectId/tasks/:taskId/get-comments", auth({ permissions: [Permissions.PROJECT_READ] }), CommentController.getComments);
-router9.patch("/organizations/:organizationId/projects/:projectId/update-comments/:commentId", auth({ permissions: [Permissions.COMMENT_UPDATE] }), validationRequest(updateCommentSchema), CommentController.updateComment);
-router9.delete("/organizations/:organizationId/projects/:projectId/delete-comments/:commentId", auth({ permissions: [Permissions.COMMENT_DELETE] }), CommentController.deleteComment);
-var CommentRoutes = router9;
+var router10 = Router9({ mergeParams: true });
+router10.post("/organizations/:organizationId/projects/:projectId/tasks/:taskId/create-comments", auth({ permissions: [Permissions.COMMENT_CREATE] }), validationRequest(createCommentSchema), CommentController.createComment);
+router10.get("/organizations/:organizationId/projects/:projectId/tasks/:taskId/get-comments", auth({ permissions: [Permissions.PROJECT_READ] }), CommentController.getComments);
+router10.patch("/organizations/:organizationId/projects/:projectId/update-comments/:commentId", auth({ permissions: [Permissions.COMMENT_UPDATE] }), validationRequest(updateCommentSchema), CommentController.updateComment);
+router10.delete("/organizations/:organizationId/projects/:projectId/delete-comments/:commentId", auth({ permissions: [Permissions.COMMENT_DELETE] }), CommentController.deleteComment);
+var CommentRoutes = router10;
 
 // src/app/module/attachment/attachment.route.ts
-import { Router as Router9 } from "express";
+import { Router as Router10 } from "express";
 
 // src/app/utils/cloudinary.ts
 import { v2 as cloudinary2 } from "cloudinary";
@@ -5530,15 +6062,15 @@ var AttachmentService = class {
     if (task.project.organizationId !== organizationId) {
       throw new Error("Task does not belong to this organization");
     }
-    const isOrgAdmin = user.organizationRole === OrganizationRole2.ORG_ADMIN;
+    const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN;
     const projectMembership = await prisma.projectMember.findUnique({
       where: { projectId_userId: { projectId: task.projectId, userId: user.userId } }
     });
     if (!isOrgAdmin && !projectMembership) {
       throw new Error("You do not have access to this project's tasks");
     }
-    const isProjectManager = user.organizationRole === OrganizationRole2.PROJECT_MANAGER && !!projectMembership;
-    const isTeamLead = user.organizationRole === OrganizationRole2.TEAM_LEAD;
+    const isProjectManager = user.organizationRole === OrganizationRole.PROJECT_MANAGER && !!projectMembership;
+    const isTeamLead = user.organizationRole === OrganizationRole.TEAM_LEAD;
     return { task, isOrgAdmin, isProjectManager, isTeamLead };
   }
   static async uploadAttachments(taskId, files, user, organizationId) {
@@ -5627,21 +6159,21 @@ var AttachmentService = class {
 };
 
 // src/app/module/attachment/attachment.controller.ts
-import httpStatus12 from "http-status";
+import httpStatus13 from "http-status";
 var uploadAttachments = catchAsync(async (req, res) => {
   if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
     throw new Error("Files are required");
   }
   const result = await AttachmentService.uploadAttachments(req.params.taskId, req.files, req.user, req.params.organizationId);
-  sendResponse(res, { success: true, statusCode: httpStatus12.CREATED, message: "Attachments uploaded successfully", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus13.CREATED, message: "Attachments uploaded successfully", data: result });
 });
 var getAttachments = catchAsync(async (req, res) => {
   const result = await AttachmentService.getAttachments(req.params.taskId, req.user, req.params.organizationId);
-  sendResponse(res, { success: true, statusCode: httpStatus12.OK, message: "Attachments retrieved successfully", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus13.OK, message: "Attachments retrieved successfully", data: result });
 });
 var deleteAttachment = catchAsync(async (req, res) => {
   const result = await AttachmentService.deleteAttachment(req.params.attachmentId, req.user, req.params.organizationId);
-  sendResponse(res, { success: true, statusCode: httpStatus12.OK, message: "Attachment deleted successfully", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus13.OK, message: "Attachment deleted successfully", data: result });
 });
 var AttachmentController = {
   uploadAttachments,
@@ -5682,28 +6214,28 @@ var AttachmentValidation = {
 };
 
 // src/app/module/attachment/attachment.route.ts
-var router10 = Router9({ mergeParams: true });
-router10.post(
+var router11 = Router10({ mergeParams: true });
+router11.post(
   "/organizations/:organizationId/projects/:projectId/tasks/:taskId/attachments",
   auth({ permissions: [Permissions.PROJECT_READ] }),
   upload2.array("files"),
   validationRequest(AttachmentValidation.createAttachmentSchema),
   AttachmentController.uploadAttachments
 );
-router10.get("/organizations/:organizationId/projects/:projectId/tasks/:taskId/attachments", auth({ permissions: [Permissions.PROJECT_READ] }), AttachmentController.getAttachments);
-router10.delete("/organizations/:organizationId/projects/:projectId/tasks/attachments/:attachmentId", auth({ permissions: [Permissions.PROJECT_READ] }), AttachmentController.deleteAttachment);
-var AttachmentRoutes = router10;
+router11.get("/organizations/:organizationId/projects/:projectId/tasks/:taskId/attachments", auth({ permissions: [Permissions.PROJECT_READ] }), AttachmentController.getAttachments);
+router11.delete("/organizations/:organizationId/projects/:projectId/tasks/attachments/:attachmentId", auth({ permissions: [Permissions.PROJECT_READ] }), AttachmentController.deleteAttachment);
+var AttachmentRoutes = router11;
 
 // src/app/module/activity/activity.route.ts
-import { Router as Router10 } from "express";
+import { Router as Router11 } from "express";
 
 // src/app/module/activity/activity.controller.ts
-import httpStatus13 from "http-status";
+import httpStatus14 from "http-status";
 var getOrganizationActivities2 = catchAsync(async (req, res, next) => {
   const result = await ActivityService.getOrganizationActivities(req.params.organizationId, req.user);
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus13.OK,
+    statusCode: httpStatus14.OK,
     message: "Activities retrieved successfully",
     data: result
   });
@@ -5712,85 +6244,49 @@ var getEntityActivities2 = catchAsync(async (req, res, next) => {
   const result = await ActivityService.getEntityActivities(req.params.organizationId, req.params.entityType, req.params.entityId, req.user);
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus13.OK,
+    statusCode: httpStatus14.OK,
     message: "Activities retrieved successfully",
+    data: result
+  });
+});
+var getGlobalActivities2 = catchAsync(async (req, res, next) => {
+  const result = await ActivityService.getGlobalActivities();
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus14.OK,
+    message: "Global activities retrieved successfully",
     data: result
   });
 });
 var ActivityController = {
   getOrganizationActivities: getOrganizationActivities2,
-  getEntityActivities: getEntityActivities2
+  getEntityActivities: getEntityActivities2,
+  getGlobalActivities: getGlobalActivities2
 };
 
 // src/app/module/activity/activity.route.ts
-var router11 = Router10({ mergeParams: true });
-router11.get("/organizations/:organizationId/get-activities", auth({ permissions: [Permissions.ACTIVITY_READ] }), ActivityController.getOrganizationActivities);
-router11.get("/organizations/:organizationId/activities/:entityType/:entityId", auth({ permissions: [Permissions.ACTIVITY_READ] }), ActivityController.getEntityActivities);
-var ActivityRoutes = router11;
+var router12 = Router11({ mergeParams: true });
+router12.get("/organizations/:organizationId/get-activities", auth({ permissions: [Permissions.ACTIVITY_READ] }), ActivityController.getOrganizationActivities);
+router12.get("/organizations/:organizationId/activities/:entityType/:entityId", auth({ permissions: [Permissions.ACTIVITY_READ] }), ActivityController.getEntityActivities);
+router12.get("/admin/global", auth({ platformRoles: [PlatformRole.SUPER_ADMIN] }), ActivityController.getGlobalActivities);
+var ActivityRoutes = router12;
 
 // src/app/module/notification/notification.route.ts
-import { Router as Router11 } from "express";
-
-// src/app/module/notification/notification.service.ts
-var NotificationService = class {
-  static async createNotification(payload) {
-    try {
-      return await prisma.notification.create({
-        data: {
-          ...payload,
-          metadata: payload.metadata ? JSON.parse(JSON.stringify(payload.metadata)) : void 0
-        }
-      });
-    } catch (error) {
-      console.error("Failed to create notification", error);
-    }
-  }
-  static async getMyNotifications(organizationId, user) {
-    return await prisma.notification.findMany({
-      where: { organizationId, userId: user.userId },
-      orderBy: { createdAt: "desc" },
-      take: 100
-    });
-  }
-  static async markAsRead(organizationId, notificationIds, user) {
-    return await prisma.notification.updateMany({
-      where: {
-        id: { in: notificationIds },
-        userId: user.userId,
-        organizationId
-      },
-      data: {
-        readAt: /* @__PURE__ */ new Date()
-      }
-    });
-  }
-  static async markAllAsRead(organizationId, user) {
-    return await prisma.notification.updateMany({
-      where: {
-        userId: user.userId,
-        organizationId,
-        readAt: null
-      },
-      data: {
-        readAt: /* @__PURE__ */ new Date()
-      }
-    });
-  }
-};
+import { Router as Router12 } from "express";
 
 // src/app/module/notification/notification.controller.ts
-import httpStatus14 from "http-status";
+import httpStatus15 from "http-status";
 var getMyNotifications = catchAsync(async (req, res) => {
   const result = await NotificationService.getMyNotifications(req.params.organizationId, req.user);
-  sendResponse(res, { success: true, statusCode: httpStatus14.OK, message: "Notifications retrieved successfully", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus15.OK, message: "Notifications retrieved successfully", data: result });
 });
 var markAsRead = catchAsync(async (req, res) => {
   const result = await NotificationService.markAsRead(req.params.organizationId, req.body.notificationIds, req.user);
-  sendResponse(res, { success: true, statusCode: httpStatus14.OK, message: "Notifications marked as read", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus15.OK, message: "Notifications marked as read", data: result });
 });
 var markAllAsRead = catchAsync(async (req, res) => {
   const result = await NotificationService.markAllAsRead(req.params.organizationId, req.user);
-  sendResponse(res, { success: true, statusCode: httpStatus14.OK, message: "All notifications marked as read", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus15.OK, message: "All notifications marked as read", data: result });
 });
 var NotificationController = {
   getMyNotifications,
@@ -5807,48 +6303,48 @@ var markReadSchema = z11.object({
 });
 
 // src/app/module/notification/notification.route.ts
-var router12 = Router11({ mergeParams: true });
-router12.get("/", auth(), NotificationController.getMyNotifications);
-router12.patch("/read", auth(), validationRequest(markReadSchema), NotificationController.markAsRead);
-router12.patch("/read-all", auth(), NotificationController.markAllAsRead);
-var NotificationRoutes = router12;
+var router13 = Router12({ mergeParams: true });
+router13.get("/", auth(), NotificationController.getMyNotifications);
+router13.patch("/read", auth(), validationRequest(markReadSchema), NotificationController.markAsRead);
+router13.patch("/read-all", auth(), NotificationController.markAllAsRead);
+var NotificationRoutes = router13;
 
 // src/app/module/organizationbilling/organizationbilling.route.ts
-import { Router as Router12 } from "express";
+import { Router as Router13 } from "express";
 
 // src/app/module/organizationbilling/organizationbilling.controller.ts
-import httpStatus15 from "http-status";
+import httpStatus16 from "http-status";
 var getBillingOverview = catchAsync(async (req, res) => {
   const result = await OrganizationBillingService.getBillingOverview(req.params.organizationId);
-  sendResponse(res, { success: true, statusCode: httpStatus15.OK, message: "Billing overview retrieved", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus16.OK, message: "Billing overview retrieved", data: result });
 });
 var getUsage = catchAsync(async (req, res) => {
   const result = await OrganizationBillingService.getUsage(req.params.organizationId);
-  sendResponse(res, { success: true, statusCode: httpStatus15.OK, message: "Usage retrieved", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus16.OK, message: "Usage retrieved", data: result });
 });
 var getInvoices = catchAsync(async (req, res) => {
   const result = await OrganizationBillingService.getInvoices(req.params.organizationId);
-  sendResponse(res, { success: true, statusCode: httpStatus15.OK, message: "Invoices retrieved", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus16.OK, message: "Invoices retrieved", data: result });
 });
 var getPayments = catchAsync(async (req, res) => {
   const result = await OrganizationBillingService.getPayments(req.params.organizationId);
-  sendResponse(res, { success: true, statusCode: httpStatus15.OK, message: "Payments retrieved", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus16.OK, message: "Payments retrieved", data: result });
 });
 var requestUpgrade = catchAsync(async (req, res) => {
   const result = await OrganizationBillingService.requestUpgrade(req.params.organizationId, req.body, req.user.userId);
-  sendResponse(res, { success: true, statusCode: httpStatus15.OK, message: "Upgrade requested", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus16.OK, message: "Upgrade requested", data: result });
 });
 var requestDowngrade = catchAsync(async (req, res) => {
   const result = await OrganizationBillingService.requestDowngrade(req.params.organizationId, req.body, req.user.userId);
-  sendResponse(res, { success: true, statusCode: httpStatus15.OK, message: "Downgrade requested", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus16.OK, message: "Downgrade requested", data: result });
 });
 var cancelSubscription = catchAsync(async (req, res) => {
   const result = await OrganizationBillingService.cancelSubscription(req.params.organizationId, req.user.userId);
-  sendResponse(res, { success: true, statusCode: httpStatus15.OK, message: "Subscription cancelled", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus16.OK, message: "Subscription cancelled", data: result });
 });
 var resumeSubscription = catchAsync(async (req, res) => {
   const result = await OrganizationBillingService.resumeSubscription(req.params.organizationId, req.user.userId);
-  sendResponse(res, { success: true, statusCode: httpStatus15.OK, message: "Subscription resumed", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus16.OK, message: "Subscription resumed", data: result });
 });
 var OrganizationBillingController = {
   getBillingOverview,
@@ -5871,24 +6367,30 @@ var upgradePlanSchema = z12.object({
 });
 
 // src/app/module/organizationbilling/organizationbilling.route.ts
-var router13 = Router12({ mergeParams: true });
-router13.post("/organizations/:organizationId/upgrade-billing", auth({ permissions: [Permissions.BILLING_MANAGE] }), validationRequest(upgradePlanSchema), OrganizationBillingController.requestUpgrade);
-router13.get("/organizations/:organizationId/get-billing", auth({ permissions: [Permissions.BILLING_READ] }), OrganizationBillingController.getBillingOverview);
-router13.get("/organizations/:organizationId/usage", auth({ permissions: [Permissions.BILLING_READ] }), OrganizationBillingController.getUsage);
-router13.get("/organizations/:organizationId/invoices", auth({ permissions: [Permissions.BILLING_MANAGE] }), OrganizationBillingController.getInvoices);
-router13.get("/organizations/:organizationId/payments", auth({ permissions: [Permissions.BILLING_MANAGE] }), OrganizationBillingController.getPayments);
-router13.post("/organizations/:organizationId/downgrade", auth({ permissions: [Permissions.BILLING_MANAGE] }), validationRequest(upgradePlanSchema), OrganizationBillingController.requestDowngrade);
-router13.post("/organizations/:organizationId/cancel", auth({ permissions: [Permissions.BILLING_MANAGE] }), OrganizationBillingController.cancelSubscription);
-router13.post("/organizations/:organizationId/resume", auth({ permissions: [Permissions.BILLING_MANAGE] }), OrganizationBillingController.resumeSubscription);
-var OrganizationBillingRoutes = router13;
+var router14 = Router13({ mergeParams: true });
+router14.post("/organizations/:organizationId/upgrade-billing", auth({ permissions: [Permissions.BILLING_MANAGE] }), validationRequest(upgradePlanSchema), OrganizationBillingController.requestUpgrade);
+router14.get("/organizations/:organizationId/get-billing", auth({ permissions: [Permissions.BILLING_READ] }), OrganizationBillingController.getBillingOverview);
+router14.get("/organizations/:organizationId/usage", auth({ permissions: [Permissions.BILLING_READ] }), OrganizationBillingController.getUsage);
+router14.get("/organizations/:organizationId/invoices", auth({ permissions: [Permissions.BILLING_MANAGE] }), OrganizationBillingController.getInvoices);
+router14.get("/organizations/:organizationId/payments", auth({ permissions: [Permissions.BILLING_MANAGE] }), OrganizationBillingController.getPayments);
+router14.post("/organizations/:organizationId/downgrade", auth({ permissions: [Permissions.BILLING_MANAGE] }), validationRequest(upgradePlanSchema), OrganizationBillingController.requestDowngrade);
+router14.post("/organizations/:organizationId/cancel", auth({ permissions: [Permissions.BILLING_MANAGE] }), OrganizationBillingController.cancelSubscription);
+router14.post("/organizations/:organizationId/resume", auth({ permissions: [Permissions.BILLING_MANAGE] }), OrganizationBillingController.resumeSubscription);
+var OrganizationBillingRoutes = router14;
 
 // src/app/module/adminbilling/adminbilling.route.ts
-import { Router as Router13 } from "express";
+import { Router as Router14 } from "express";
 
 // src/app/module/adminbilling/adminbilling.service.ts
 var AdminBillingService = class {
   static async getPlans() {
     return prisma.plan.findMany();
+  }
+  static async createPlan(data) {
+    return prisma.plan.create({ data });
+  }
+  static async updatePlan(planId, data) {
+    return prisma.plan.update({ where: { id: planId }, data });
   }
   static async getAllSubscriptions() {
     return prisma.subscription.findMany({ include: { plan: true, organization: true } });
@@ -5966,38 +6468,48 @@ var AdminBillingService = class {
 };
 
 // src/app/module/adminbilling/adminbilling.controller.ts
-import httpStatus16 from "http-status";
+import httpStatus17 from "http-status";
 var getPlans = catchAsync(async (req, res) => {
   const result = await AdminBillingService.getPlans();
-  sendResponse(res, { success: true, statusCode: httpStatus16.OK, message: "Plans retrieved", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus17.OK, message: "Plans retrieved", data: result });
+});
+var createPlan = catchAsync(async (req, res) => {
+  const result = await AdminBillingService.createPlan(req.body);
+  sendResponse(res, { success: true, statusCode: httpStatus17.CREATED, message: "Plan created", data: result });
+});
+var updatePlan = catchAsync(async (req, res) => {
+  const result = await AdminBillingService.updatePlan(req.params.planId, req.body);
+  sendResponse(res, { success: true, statusCode: httpStatus17.OK, message: "Plan updated", data: result });
 });
 var getAllSubscriptions = catchAsync(async (req, res) => {
   const result = await AdminBillingService.getAllSubscriptions();
-  sendResponse(res, { success: true, statusCode: httpStatus16.OK, message: "Subscriptions retrieved", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus17.OK, message: "Subscriptions retrieved", data: result });
 });
 var getPendingPayments = catchAsync(async (req, res) => {
   const result = await AdminBillingService.getPendingPayments();
-  sendResponse(res, { success: true, statusCode: httpStatus16.OK, message: "Pending payments retrieved", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus17.OK, message: "Pending payments retrieved", data: result });
 });
 var getPaymentById = catchAsync(async (req, res) => {
   const result = await AdminBillingService.getPaymentById(req.params.paymentId);
-  sendResponse(res, { success: true, statusCode: httpStatus16.OK, message: "Payment retrieved", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus17.OK, message: "Payment retrieved", data: result });
 });
 var getAllPayments = catchAsync(async (req, res) => {
   const result = await AdminBillingService.getAllPayments();
-  sendResponse(res, { success: true, statusCode: httpStatus16.OK, message: "All payments retrieved", data: result });
+  sendResponse(res, { success: true, statusCode: httpStatus17.OK, message: "All payments retrieved", data: result });
 });
 var bkashCallback = catchAsync(async (req, res) => {
   const { paymentID, status } = req.query;
   const result = await AdminBillingService.executeBkashCallback(paymentID, status);
   if (result.success) {
-    sendResponse(res, { success: true, statusCode: httpStatus16.OK, message: result.message, data: result });
+    sendResponse(res, { success: true, statusCode: httpStatus17.OK, message: result.message, data: result });
   } else {
-    sendResponse(res, { success: false, statusCode: httpStatus16.BAD_REQUEST, message: result.message, data: result });
+    sendResponse(res, { success: false, statusCode: httpStatus17.BAD_REQUEST, message: result.message, data: result });
   }
 });
 var AdminBillingController = {
   getPlans,
+  createPlan,
+  updatePlan,
   getAllSubscriptions,
   getPendingPayments,
   getAllPayments,
@@ -6006,8 +6518,10 @@ var AdminBillingController = {
 };
 
 // src/app/module/adminbilling/adminbilling.route.ts
-var adminRouter = Router13();
+var adminRouter = Router14();
 adminRouter.get("/plans", auth({ platformRoles: [PlatformRole.SUPER_ADMIN] }), AdminBillingController.getPlans);
+adminRouter.post("/plans", auth({ platformRoles: [PlatformRole.SUPER_ADMIN] }), AdminBillingController.createPlan);
+adminRouter.patch("/plans/:planId", auth({ platformRoles: [PlatformRole.SUPER_ADMIN] }), AdminBillingController.updatePlan);
 adminRouter.get("/subscriptions", auth({ platformRoles: [PlatformRole.SUPER_ADMIN] }), AdminBillingController.getAllSubscriptions);
 adminRouter.get("/payments/pending", auth({ platformRoles: [PlatformRole.SUPER_ADMIN] }), AdminBillingController.getPendingPayments);
 adminRouter.get("/payments", auth({ platformRoles: [PlatformRole.SUPER_ADMIN] }), AdminBillingController.getAllPayments);
@@ -6031,6 +6545,7 @@ app.get("/", (req, res) => {
   res.send("Hello Dip!");
 });
 app.use("/api/v1/auth", AuthRouter);
+app.use("/api/v1/users", UserRouter);
 app.use("/api/v1/invitations", InvitationRouter);
 app.use("/api/v1/organizations", OrganizationRouter);
 app.use("/api/v1/projects", ProjectRouter);

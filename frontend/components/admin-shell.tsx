@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { Activity, Bell, LayoutDashboard, LogOut, Menu, Moon, ShieldCheck, Sun, Users, X, CreditCard, Building, Banknote, ListPlus } from "lucide-react";

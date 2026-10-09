@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { WorkspaceShell } from "@/components/workspace-shell";
@@ -27,13 +28,32 @@ export default function TaskDetailPage() {
   const updateStatusMutation = useMutation({
     mutationFn: (newStatus: string) => 
       api.tasks.update(activeOrganizationId!, task.projectId, taskId as string, { status: newStatus }),
+    onMutate: async (newStatus: string) => {
+      await queryClient.cancelQueries({ queryKey: ['task', taskId, activeOrganizationId] });
+      const previousTask = queryClient.getQueryData(['task', taskId, activeOrganizationId]);
+      
+      queryClient.setQueryData(['task', taskId, activeOrganizationId], (old: any) => {
+        if (!old || !old.data) return old;
+        return {
+          ...old,
+          data: { ...old.data, status: newStatus }
+        };
+      });
+      
+      return { previousTask };
+    },
+    onError: (error: any, newStatus, context) => {
+      if (context?.previousTask) {
+        queryClient.setQueryData(['task', taskId, activeOrganizationId], context.previousTask);
+      }
+      toast.error(error.message || "Failed to update status");
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['task', taskId] });
-      queryClient.invalidateQueries({ queryKey: ['tasks', activeOrganizationId] });
       toast.success("Task status updated");
     },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to update status");
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['task', taskId, activeOrganizationId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', activeOrganizationId] });
     }
   });
 

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { Filter, MoreHorizontal, Plus, Search, Loader2 } from "lucide-react";
@@ -47,7 +48,7 @@ export default function TasksPage() {
           <div>
             <p className="text-sm font-medium text-primary">Workspace</p>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-[28px]">Tasks</h1>
-            <p className="mt-1.5 text-sm text-muted-foreground">Your team's work, organized by priority and momentum.</p>
+            <p className="mt-1.5 text-sm text-muted-foreground">Your team&apos;s work, organized by priority and momentum.</p>
           </div>
           <button className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-blue-700">
             <Plus size={17} />New task

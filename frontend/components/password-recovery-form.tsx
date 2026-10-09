@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { ArrowLeft, ArrowRight, Eye, EyeOff, Loader2, Mail, ShieldCheck, Zap } from "lucide-react";

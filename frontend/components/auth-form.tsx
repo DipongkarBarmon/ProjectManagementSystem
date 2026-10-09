@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { GoogleLogin, GoogleOAuthProvider } from "@react-oauth/google";
@@ -28,9 +29,10 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     try {
       const res = await api.auth.me();
       if (res.success && res.data) {
-        setAuthUser(res.data);
+        const userData = res.data.user || res.data;
+        setAuthUser(userData);
         
-        let target = res.data.platformRole === "SUPER_ADMIN" ? "/admin" : "/dashboard";
+        let target = userData.platformRole === "SUPER_ADMIN" ? "/admin" : "/dashboard";
         if (typeof window !== "undefined") {
           const params = new URLSearchParams(window.location.search);
           const callbackUrl = params.get("callbackUrl");

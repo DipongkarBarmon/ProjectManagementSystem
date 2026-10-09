@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect } from "react";
@@ -17,7 +18,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [initialize, isInitialized]);
 
   const publicRoutes = ["/login", "/register", "/verify-email", "/forgot-password", "/reset-password", "/unauthorized", "/forbidden"];
-  const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route));
+  const isPublicRoute = pathname === "/" || publicRoutes.some((route) => pathname.startsWith(route));
 
   // If we are still initializing and this isn't a public route where we just show the form immediately,
   // we might want to show a loading screen to prevent flash of content.
@@ -34,7 +35,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   if (isInitialized && user) {
     if (pathname.startsWith("/admin") && user.platformRole !== "SUPER_ADMIN") {
       if (typeof window !== "undefined") {
-        window.location.href = "/forbidden";
+        window.location.assign("/forbidden");
+      }
+      return null;
+    }
+
+    const isPublicRoute = pathname === "/" || publicRoutes.some((route) => pathname.startsWith(route));
+    if (isPublicRoute) {
+      if (typeof window !== "undefined") {
+        window.location.assign(user.platformRole === "SUPER_ADMIN" ? "/admin" : "/dashboard");
       }
       return null;
     }
@@ -43,7 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isWorkspaceRoute = workspaceRoutes.some(route => pathname.startsWith(route) || pathname === "/");
     if (isWorkspaceRoute && user.platformRole === "SUPER_ADMIN") {
       if (typeof window !== "undefined") {
-        window.location.href = "/admin";
+        window.location.assign("/admin");
       }
       return null;
     }

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { PasswordRecoveryForm } from "@/components/password-recovery-form";
 
 export default function ForgotPasswordPage() {

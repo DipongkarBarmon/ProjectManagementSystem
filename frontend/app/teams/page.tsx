@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { Filter, MoreHorizontal, Plus, Search, Loader2 } from "lucide-react";

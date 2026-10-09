@@ -1,10 +1,49 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api/v1";
+
+export class ApiError extends Error {
+  public statusCode: number;
+  public data?: any;
+
+  constructor(message: string, statusCode: number, data?: any) {
+    super(message);
+    this.name = "ApiError";
+    this.statusCode = statusCode;
+    this.data = data;
+  }
+}
 
 export type ApiResponse<T> = {
   success: boolean;
   statusCode: number;
   message: string;
   data: T;
+  meta?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
+export type PaginationParams = {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  searchTerm?: string;
+};
+
+const buildQuery = (params?: PaginationParams) => {
+  if (!params) return '';
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== '') {
+      searchParams.append(key, String(value));
+    }
+  });
+  const query = searchParams.toString();
+  return query ? `?${query}` : '';
 };
 
 export type ProjectSummary = {
@@ -38,11 +77,19 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<ApiR
     headers["Content-Type"] = "application/json";
   }
 
-  let response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    credentials: "include",
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...options,
+      credentials: "include",
+      headers,
+    });
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      throw error;
+    }
+    throw new ApiError("Network error: Could not connect to the server.", 0);
+  }
 
   if (response.status === 401 && path !== "/auth/refresh-token" && path !== "/auth/login") {
     if (!isRefreshing) {
@@ -59,8 +106,16 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<ApiR
         } else {
           isRefreshing = false;
           onRefreshed(false);
+          try {
+            await fetch(`${API_URL}/auth/logout`, { method: "POST", credentials: "include" });
+          } catch (e) {
+            // Ignore error if logout fails
+          }
           if (typeof window !== "undefined") {
-            window.location.href = "/login";
+            const currentPath = window.location.pathname;
+            if (currentPath !== "/" && !currentPath.startsWith("/login") && !currentPath.startsWith("/register") && !currentPath.startsWith("/forgot") && !currentPath.startsWith("/reset") && !currentPath.startsWith("/unauthorized") && !currentPath.startsWith("/forbidden")) {
+              window.location.href = "/login";
+            }
           }
         }
       } catch (err) {
@@ -83,96 +138,104 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<ApiR
         headers,
       });
     } else {
-      throw new Error("Session expired. Please log in again.");
+      throw new ApiError("Session expired. Please log in again.", 401);
     }
   }
 
-  const body = (await response.json()) as ApiResponse<T>;
-  if (!response.ok || !body.success) {
-    throw new Error(body.message || "The request could not be completed.");
+  let body: any;
+  try {
+    body = await response.json();
+  } catch (err) {
+    if (!response.ok) {
+      throw new ApiError(`Server error: ${response.statusText}`, response.status);
+    }
+    throw new ApiError("Invalid JSON response from server.", 500);
   }
-  return body;
+
+  if (!response.ok || body.success === false) {
+    throw new ApiError(body.message || "The request could not be completed.", response.status || body.statusCode, body);
+  }
+  
+  return body as ApiResponse<T>;
 }
 
 export const api = {
   auth: {
-    login: (payload: Record<string, string>) => request<any>("/auth/login", { method: "POST", body: JSON.stringify(payload) }),
-    register: (payload: FormData | Record<string, string>) => request("/auth/register", { method: "POST", body: payload instanceof FormData ? payload : JSON.stringify(payload) }),
-    verifyEmail: (payload: { email: string; otp: string }) => request("/auth/verify-email", { method: "POST", body: JSON.stringify(payload) }),
-    google: (idToken: string) => request("/auth/google", { method: "POST", body: JSON.stringify({ idToken }) }),
-    forgotPassword: (email: string) => request("/auth/forget-password", { method: "POST", body: JSON.stringify({ email }) }),
-    resetPassword: (payload: { email: string; otp: string; newPassword: string }) => request("/auth/reset-password", { method: "POST", body: JSON.stringify(payload) }),
-    refresh: () => request("/auth/refresh-token", { method: "POST" }),
-    me: () => request<any>("/users/me", { method: "GET" }), // was /auth/me, fixed
-    logout: () => request("/auth/logout", { method: "POST" }),
+    login: (payload: Record<string, string>, options?: RequestInit) => request<any>("/auth/login", { ...options, method: "POST", body: JSON.stringify(payload) }),
+    register: (payload: FormData | Record<string, string>, options?: RequestInit) => request("/auth/register", { ...options, method: "POST", body: payload instanceof FormData ? payload : JSON.stringify(payload) }),
+    verifyEmail: (payload: { email: string; otp: string }, options?: RequestInit) => request("/auth/verify-email", { ...options, method: "POST", body: JSON.stringify(payload) }),
+    google: (idToken: string, options?: RequestInit) => request("/auth/google", { ...options, method: "POST", body: JSON.stringify({ idToken }) }),
+    forgotPassword: (email: string, options?: RequestInit) => request("/auth/forget-password", { ...options, method: "POST", body: JSON.stringify({ email }) }),
+    resetPassword: (payload: { email: string; otp: string; newPassword: string }, options?: RequestInit) => request("/auth/reset-password", { ...options, method: "POST", body: JSON.stringify(payload) }),
+    refresh: (options?: RequestInit) => request("/auth/refresh-token", { ...options, method: "POST" }),
+    me: (options?: RequestInit) => request<any>("/auth/me", { ...options, method: "GET" }), // Fixed from /users/me
+    logout: (options?: RequestInit) => request("/auth/logout", { ...options, method: "POST" }),
   },
   organizations: {
-    list: () => request<any>("/organizations/get-all-organizations"),
-    get: (orgId: string) => request<any>(`/organizations/${orgId}`),
-    create: (payload: Record<string, any>) => request<any>("/organizations/create-organization", { method: "POST", body: JSON.stringify(payload) }),
-    update: (orgId: string, payload: Record<string, any>) => request<any>(`/organizations/${orgId}`, { method: "PATCH", body: JSON.stringify(payload) }),
-    delete: (orgId: string) => request<any>(`/organizations/${orgId}`, { method: "DELETE" }),
+    list: (params?: PaginationParams, options?: RequestInit) => request<any>(`/organizations/get-all-organizations${buildQuery(params)}`, options),
+    get: (orgId: string, options?: RequestInit) => request<any>(`/organizations/${orgId}`, options),
+    create: (payload: Record<string, any>, options?: RequestInit) => request<any>("/organizations/create-organization", { ...options, method: "POST", body: JSON.stringify(payload) }),
+    updateInfo: (orgId: string, payload: Record<string, any>, options?: RequestInit) => request<any>(`/organizations/${orgId}/update-OrganizationInfo`, { ...options, method: "POST", body: JSON.stringify(payload) }),
+    updateLogo: (orgId: string, payload: FormData, options?: RequestInit) => request<any>(`/organizations/${orgId}/update-logo`, { ...options, method: "POST", body: payload }),
+    delete: (orgId: string, options?: RequestInit) => request<any>(`/organizations/${orgId}`, { ...options, method: "DELETE" }),
   },
   members: {
-    list: (orgId: string) => request<any>(`/organizations/${orgId}/members`),
-    invite: (orgId: string, payload: Record<string, any>) => request<any>(`/invitations`, { method: "POST", body: JSON.stringify({ ...payload, organizationId: orgId }) }),
-    updateRole: (orgId: string, memberId: string, payload: Record<string, any>) => request<any>(`/organizations/${orgId}/members/${memberId}/role`, { method: "PATCH", body: JSON.stringify(payload) }),
-    remove: (orgId: string, memberId: string) => request<any>(`/organizations/${orgId}/members/${memberId}`, { method: "DELETE" }),
+    list: (orgId: string, params?: PaginationParams, options?: RequestInit) => request<any>(`/organizations/${orgId}/members${buildQuery(params)}`, options),
+    invite: (orgId: string, payload: Record<string, any>, options?: RequestInit) => request<any>(`/invitations/${orgId}/sent-invitation`, { ...options, method: "POST", body: JSON.stringify(payload) }),
+    updateRole: (orgId: string, memberId: string, payload: Record<string, any>, options?: RequestInit) => request<any>(`/organizations/${orgId}/members/${memberId}/role`, { ...options, method: "PATCH", body: JSON.stringify(payload) }),
+    remove: (orgId: string, memberId: string, options?: RequestInit) => request<any>(`/organizations/${orgId}/members/${memberId}`, { ...options, method: "DELETE" }),
   },
   teams: {
-    list: (orgId: string) => request<any>(`/teams/${orgId}`),
-    create: (orgId: string, payload: Record<string, any>) => request<any>(`/teams/${orgId}`, { method: "POST", body: JSON.stringify(payload) }),
-    update: (orgId: string, teamId: string, payload: Record<string, any>) => request<any>(`/teams/${orgId}/${teamId}`, { method: "PATCH", body: JSON.stringify(payload) }),
-    delete: (orgId: string, teamId: string) => request<any>(`/teams/${orgId}/${teamId}`, { method: "DELETE" }),
+    list: (orgId: string, params?: PaginationParams, options?: RequestInit) => request<any>(`/teams/${orgId}/get-all-teams${buildQuery(params)}`, options),
+    create: (orgId: string, payload: Record<string, any>, options?: RequestInit) => request<any>(`/teams/${orgId}/create-teams`, { ...options, method: "POST", body: JSON.stringify(payload) }),
+    update: (orgId: string, teamId: string, payload: Record<string, any>, options?: RequestInit) => request<any>(`/teams/${orgId}/update-team/${teamId}`, { ...options, method: "PATCH", body: JSON.stringify(payload) }),
+    delete: (orgId: string, teamId: string, options?: RequestInit) => request<any>(`/teams/${orgId}/delete-team/${teamId}`, { ...options, method: "DELETE" }),
   },
   projects: {
-    list: (orgId: string) => request<any>(`/projects/${orgId}/getAllprojects`),
-    get: (orgId: string, projectId: string) => request<any>(`/projects/${orgId}/projects/${projectId}`),
-    create: (orgId: string, payload: Record<string, any>) => request<any>(`/projects/${orgId}/create-project`, { method: "POST", body: JSON.stringify(payload) }),
-    update: (orgId: string, projectId: string, payload: Record<string, any>) => request<any>(`/projects/${orgId}/projects/${projectId}`, { method: "PATCH", body: JSON.stringify(payload) }),
-    delete: (orgId: string, projectId: string) => request<any>(`/projects/${orgId}/projects/${projectId}`, { method: "DELETE" }),
+    list: (orgId: string, params?: PaginationParams, options?: RequestInit) => request<any>(`/projects/${orgId}/getAllprojects${buildQuery(params)}`, options),
+    get: (orgId: string, projectId: string, options?: RequestInit) => request<any>(`/projects/${orgId}/projects/${projectId}`, options),
+    create: (orgId: string, payload: Record<string, any>, options?: RequestInit) => request<any>(`/projects/${orgId}/create-project`, { ...options, method: "POST", body: JSON.stringify(payload) }),
+    update: (orgId: string, projectId: string, payload: Record<string, any>, options?: RequestInit) => request<any>(`/projects/${orgId}/projects/${projectId}`, { ...options, method: "PATCH", body: JSON.stringify(payload) }),
+    delete: (orgId: string, projectId: string, options?: RequestInit) => request<any>(`/projects/${orgId}/projects/${projectId}`, { ...options, method: "DELETE" }),
   },
   sprints: {
-    list: (orgId: string, projectId: string) => request<any>(`/sprints/${orgId}/${projectId}/get-all-sprints`),
-    create: (orgId: string, projectId: string, payload: Record<string, any>) => request<any>(`/sprints/${orgId}/${projectId}/create-sprint`, { method: "POST", body: JSON.stringify(payload) }),
-    update: (orgId: string, projectId: string, sprintId: string, payload: Record<string, any>) => request<any>(`/sprints/${orgId}/${projectId}/update-sprint/${sprintId}`, { method: "PATCH", body: JSON.stringify(payload) }),
-    delete: (orgId: string, projectId: string, sprintId: string) => request<any>(`/sprints/${orgId}/${projectId}/delete-sprint/${sprintId}`, { method: "DELETE" }),
+    list: (orgId: string, projectId: string, params?: PaginationParams, options?: RequestInit) => request<any>(`/sprints/organizations/${orgId}/projects/${projectId}/get-all-sprints${buildQuery(params)}`, options),
+    create: (orgId: string, projectId: string, payload: Record<string, any>, options?: RequestInit) => request<any>(`/sprints/organizations/${orgId}/projects/${projectId}/create-sprint`, { ...options, method: "POST", body: JSON.stringify(payload) }),
+    update: (orgId: string, projectId: string, sprintId: string, payload: Record<string, any>, options?: RequestInit) => request<any>(`/sprints/organizations/${orgId}/projects/${projectId}/update-sprint/${sprintId}`, { ...options, method: "PATCH", body: JSON.stringify(payload) }),
+    delete: (orgId: string, projectId: string, sprintId: string, options?: RequestInit) => request<any>(`/sprints/organizations/${orgId}/projects/${projectId}/delete-sprint/${sprintId}`, { ...options, method: "DELETE" }),
   },
   tasks: {
-    list: (orgId: string, projectId: string) => request<any>(`/tasks/organizations/${orgId}/projects/${projectId}/get-all-tasks`),
-    get: (orgId: string, projectId: string, taskId: string) => request<any>(`/tasks/organizations/${orgId}/projects/${projectId}/get-task/${taskId}`),
-    getById: (orgId: string, taskId: string) => request<any>(`/tasks/organizations/${orgId}/get-task/${taskId}`),
-    create: (orgId: string, projectId: string, payload: Record<string, any>) => request<any>(`/tasks/organizations/${orgId}/projects/${projectId}/create-task`, { method: "POST", body: JSON.stringify(payload) }),
-    update: (orgId: string, projectId: string, taskId: string, payload: Record<string, any>) => request<any>(`/tasks/organizations/${orgId}/projects/${projectId}/update-task/${taskId}`, { method: "PATCH", body: JSON.stringify(payload) }),
-    delete: (orgId: string, projectId: string, taskId: string) => request<any>(`/tasks/organizations/${orgId}/projects/${projectId}/delete-task/${taskId}`, { method: "DELETE" }),
-    listAll: (orgId: string) => request<any>(`/tasks/organizations/${orgId}/get-all-tasks`),
+    list: (orgId: string, projectId: string, params?: PaginationParams, options?: RequestInit) => request<any>(`/tasks/organizations/${orgId}/projects/${projectId}/get-all-tasks${buildQuery(params)}`, options),
+    get: (orgId: string, projectId: string, taskId: string, options?: RequestInit) => request<any>(`/tasks/organizations/${orgId}/projects/${projectId}/get-task/${taskId}`, options),
+    getById: (orgId: string, taskId: string, options?: RequestInit) => request<any>(`/tasks/organizations/${orgId}/get-task/${taskId}`, options),
+    create: (orgId: string, projectId: string, payload: Record<string, any>, options?: RequestInit) => request<any>(`/tasks/organizations/${orgId}/projects/${projectId}/create-tasks`, { ...options, method: "POST", body: JSON.stringify(payload) }),
+    update: (orgId: string, projectId: string, taskId: string, payload: Record<string, any>, options?: RequestInit) => request<any>(`/tasks/organizations/${orgId}/projects/${projectId}/update-task/${taskId}`, { ...options, method: "PATCH", body: JSON.stringify(payload) }),
+    delete: (orgId: string, projectId: string, taskId: string, options?: RequestInit) => request<any>(`/tasks/organizations/${orgId}/projects/${projectId}/delete-task/${taskId}`, { ...options, method: "DELETE" }),
+    listAll: (orgId: string, params?: PaginationParams, options?: RequestInit) => request<any>(`/tasks/organizations/${orgId}/get-all-tasks${buildQuery(params)}`, options),
   },
   activity: {
-    list: (orgId: string) => request<any>(`/activities/${orgId}`),
-  },
-  dashboard: {
-    getStats: (orgId: string) => request<any>(`/dashboard/${orgId}/stats`),
+    list: (orgId: string, params?: PaginationParams, options?: RequestInit) => request<any>(`/activities/organizations/${orgId}/get-activities${buildQuery(params)}`, options),
   },
   admin: {
     plans: {
-      list: () => request("/billing/plans"),
-      create: (payload: Record<string, any>) => request("/billing/plans", { method: "POST", body: JSON.stringify(payload) }),
-      update: (planId: string, payload: Record<string, any>) => request(`/billing/plans/${planId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+      list: (params?: PaginationParams, options?: RequestInit) => request(`/billing/plans${buildQuery(params)}`, options),
+      create: (payload: Record<string, any>, options?: RequestInit) => request("/billing/plans", { ...options, method: "POST", body: JSON.stringify(payload) }),
+      update: (planId: string, payload: Record<string, any>, options?: RequestInit) => request(`/billing/plans/${planId}`, { ...options, method: "PATCH", body: JSON.stringify(payload) }),
     },
     users: {
-      list: (query = "") => request(`/users/admin/all${query ? `?${query}` : ''}`),
-      block: (userId: string) => request(`/users/admin/${userId}/block`, { method: "PATCH", body: JSON.stringify({ isBlocked: true }) }),
-      unblock: (userId: string) => request(`/users/admin/${userId}/block`, { method: "PATCH", body: JSON.stringify({ isBlocked: false }) }),
-      delete: (userId: string) => request(`/users/admin/${userId}`, { method: "DELETE" }),
+      list: (params?: PaginationParams, options?: RequestInit) => request(`/users/admin/all${buildQuery(params)}`, options),
+      block: (userId: string, options?: RequestInit) => request(`/users/admin/${userId}/block`, { ...options, method: "PATCH", body: JSON.stringify({ isBlocked: true }) }),
+      unblock: (userId: string, options?: RequestInit) => request(`/users/admin/${userId}/block`, { ...options, method: "PATCH", body: JSON.stringify({ isBlocked: false }) }),
+      delete: (userId: string, options?: RequestInit) => request(`/users/admin/${userId}`, { ...options, method: "DELETE" }),
     },
     organizations: {
-      list: () => request("/organizations/admin/all"),
+      list: (params?: PaginationParams, options?: RequestInit) => request(`/organizations/admin/all${buildQuery(params)}`, options),
     },
     activity: {
-      list: () => request("/activities/admin/global"),
+      list: (params?: PaginationParams, options?: RequestInit) => request(`/activities/admin/global${buildQuery(params)}`, options),
     },
-    subscriptions: () => request("/billing/subscriptions"),
-    payments: () => request("/billing/payments"),
-    pendingPayments: () => request("/billing/payments/pending"),
+    subscriptions: (params?: PaginationParams, options?: RequestInit) => request(`/billing/subscriptions${buildQuery(params)}`, options),
+    payments: (params?: PaginationParams, options?: RequestInit) => request(`/billing/payments${buildQuery(params)}`, options),
+    pendingPayments: (params?: PaginationParams, options?: RequestInit) => request(`/billing/payments/pending${buildQuery(params)}`, options),
   },
 };

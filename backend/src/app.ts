@@ -20,7 +20,6 @@ import { ActivityRoutes } from './app/module/activity/activity.route'
 import { NotificationRoutes } from './app/module/notification/notification.route'
 import { OrganizationBillingRoutes } from './app/module/organizationbilling/organizationbilling.route'
 import { AdminBillingRoutes } from './app/module/adminbilling/adminbilling.route'
-import { DashboardRoutes } from './app/module/dashboard/dashboard.route'
 
 const app  : Application=express()
 app.use(
@@ -55,7 +54,6 @@ app.use('/api/v1/activities', ActivityRoutes)
 app.use('/api/v1/organizations/:organizationId/notifications', NotificationRoutes)
 app.use('/api/v1/billing', OrganizationBillingRoutes)
 app.use('/api/v1/billing', AdminBillingRoutes)
-app.use('/api/v1/dashboard', DashboardRoutes)
 
 app.use(notFound)
 app.use(globalErrorHandler)

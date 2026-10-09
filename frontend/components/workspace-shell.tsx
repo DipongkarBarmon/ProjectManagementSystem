@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { Activity, Bell, ChevronDown, FolderKanban, LayoutDashboard, ListTodo, LogOut, Menu, Moon, Settings, ShieldCheck, Sun, Users, X, Zap } from "lucide-react";

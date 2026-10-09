@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+
 
 export default function UnauthorizedPage() {
   return (
@@ -10,8 +11,8 @@ export default function UnauthorizedPage() {
           You must be logged in to view this page.
         </p>
         <div className="mt-8">
-          <Link href="/login">
-            <Button className="w-full">Go to Login</Button>
+          <Link href="/login" className="inline-flex w-full items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+            Go to Login
           </Link>
         </div>
       </div>

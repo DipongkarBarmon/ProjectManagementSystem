@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { ArrowRight, Zap, Loader2 } from "lucide-react";
@@ -17,7 +18,9 @@ export default function OnboardingPage() {
     if (!workspace.trim()) return;
     setLoading(true);
     try {
-      const res = await api.organizations.create({ name: workspace.trim() });
+      const name = workspace.trim();
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+      const res = await api.organizations.create({ name, slug });
       if (res.success && res.data) {
         toast.success("Workspace created successfully");
         // We set the active organization ID directly

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { Filter, MoreHorizontal, Plus, Search, Loader2 } from "lucide-react";
@@ -24,7 +25,7 @@ export default function SprintsPage() {
 
   useEffect(() => {
     if (allProjects.length > 0 && !selectedProjectId) {
-      setSelectedProjectId(allProjects[0].id);
+      setTimeout(() => setSelectedProjectId(allProjects[0].id), 0);
     }
   }, [allProjects, selectedProjectId]);
 

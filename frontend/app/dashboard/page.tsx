@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { ArrowUpRight, CheckCircle2, FolderKanban, ListTodo, Plus, Users, Loader2 } from "lucide-react";
@@ -31,15 +32,21 @@ export default function DashboardPage() {
   const { activeOrganizationId } = useWorkspaceStore();
   const { user } = useAuthStore();
 
-  const { data: statsRes, isLoading: statsLoading } = useQuery({
-    queryKey: ['dashboard', 'stats', activeOrganizationId],
-    queryFn: () => api.dashboard.getStats(activeOrganizationId!),
-    enabled: !!activeOrganizationId
-  });
-
   const { data: projectsRes, isLoading: projectsLoading } = useQuery({
     queryKey: ['dashboard', 'projects', activeOrganizationId],
     queryFn: () => api.projects.list(activeOrganizationId!),
+    enabled: !!activeOrganizationId
+  });
+
+  const { data: tasksRes, isLoading: tasksLoading } = useQuery({
+    queryKey: ['dashboard', 'tasks', activeOrganizationId],
+    queryFn: () => api.tasks.listAll(activeOrganizationId!),
+    enabled: !!activeOrganizationId
+  });
+
+  const { data: membersRes, isLoading: membersLoading } = useQuery({
+    queryKey: ['dashboard', 'members', activeOrganizationId],
+    queryFn: () => api.members.list(activeOrganizationId!),
     enabled: !!activeOrganizationId
   });
 
@@ -49,11 +56,21 @@ export default function DashboardPage() {
     enabled: !!activeOrganizationId
   });
 
-  const stats = statsRes?.data || { activeProjects: 0, openTasks: 0, completedTasks: 0, teamMembers: 0 };
+  const rawProjects = projectsRes?.data?.data || projectsRes?.data || [];
+  const rawTasks = tasksRes?.data?.data || tasksRes?.data || [];
+  const rawMembers = membersRes?.data?.data || membersRes?.data || [];
+  
+  const statsLoading = projectsLoading || tasksLoading || membersLoading;
+
+  const stats = {
+    activeProjects: Array.isArray(rawProjects) ? rawProjects.filter(p => p.status !== 'ARCHIVED').length : 0,
+    openTasks: Array.isArray(rawTasks) ? rawTasks.filter(t => t.status !== 'DONE' && t.status !== 'CANCELLED').length : 0,
+    completedTasks: Array.isArray(rawTasks) ? rawTasks.filter(t => t.status === 'DONE').length : 0,
+    teamMembers: projectsRes?.meta?.total || membersRes?.meta?.total || (Array.isArray(rawMembers) ? rawMembers.length : 0)
+  };
   
   // Try to safely extract projects, fallback to empty array
   // If backend wraps in .data or not, we handle both
-  const rawProjects = projectsRes?.data?.data || projectsRes?.data || [];
   const projects = Array.isArray(rawProjects) ? rawProjects.slice(0, 5) : [];
 
   const rawActivity = activityRes?.data?.data || activityRes?.data || [];
@@ -102,7 +119,7 @@ export default function DashboardPage() {
               ) : (
                 projects.map((project: any) => {
                   // Mock a progress value if backend doesn't provide it yet
-                  const progress = project.progress || Math.floor(Math.random() * 100);
+                  const progress = project.progress || 0;
                   const color = project.color || "bg-blue-600";
                   
                   return (

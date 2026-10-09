@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { WorkspaceShell } from "@/components/workspace-shell";
@@ -9,7 +10,7 @@ export default function SettingsPage() {
   const { user } = useAuthStore();
   const { activeOrganizationId, organizations } = useWorkspaceStore();
   
-  const activeOrg = organizations.find((o) => o.id === activeOrganizationId);
+  const activeOrg = organizations.find((o:any) => o.id === activeOrganizationId);
   const isOrgAdmin = activeOrg?.myRole === 'OWNER' || activeOrg?.myRole === 'ORG_ADMIN';
 
   return (

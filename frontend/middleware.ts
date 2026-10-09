@@ -5,7 +5,7 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const publicRoutes = ['/login', '/register', '/verify-email', '/forgot-password', '/reset-password'];
-  const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route));
+  const isPublicRoute = pathname === '/' || publicRoutes.some((route) => pathname.startsWith(route));
 
   const hasAccessToken = request.cookies.has('accessToken');
   const hasRefreshToken = request.cookies.has('refreshToken');
@@ -13,10 +13,7 @@ export function middleware(request: NextRequest) {
   // If we have either token, we consider the user at least potentially authenticated
   const isAuthenticated = hasAccessToken || hasRefreshToken;
 
-  if (isAuthenticated && isPublicRoute) {
-    // Determine redirect based on something in cookies or default to dashboard
-    return NextResponse.redirect(new URL('/dashboard', request.url));
-  }
+
 
   if (!isAuthenticated && !isPublicRoute) {
     // If not authenticated and trying to access a protected route (anything not in publicRoutes, assuming / is not public either, or we protect specific paths)

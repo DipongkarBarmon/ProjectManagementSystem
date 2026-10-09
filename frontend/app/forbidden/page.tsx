@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+
 
 export default function ForbiddenPage() {
   return (
@@ -10,8 +11,8 @@ export default function ForbiddenPage() {
           You do not have permission to access this resource.
         </p>
         <div className="mt-8">
-          <Link href="/dashboard">
-            <Button className="w-full">Return to Dashboard</Button>
+          <Link href="/dashboard" className="inline-flex w-full items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+            Return to Dashboard
           </Link>
         </div>
       </div>

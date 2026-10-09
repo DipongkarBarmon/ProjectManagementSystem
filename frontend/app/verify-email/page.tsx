@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { ArrowRight, CheckCircle2, Loader2, Mail } from "lucide-react";
