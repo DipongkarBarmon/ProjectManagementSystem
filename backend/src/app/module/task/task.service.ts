@@ -2,6 +2,7 @@ import { prisma } from "../../lib/prisma";
 import { RequestUser } from "../../middleware/checkAuth";
 import { OrganizationRole, ActivityAction } from "../../../../generated/prisma/enums";
 import { ActivityService } from "../activity/activity.service";
+import { NotificationService } from "../notification/notification.service";
 import { ICreateTaskPayload, IUpdateTaskPayload } from "./task.interface";
 
 export class TaskService {
@@ -90,21 +91,67 @@ export class TaskService {
         metadata: { assigneeId: payload.assigneeId },
         description: `Task assigned upon creation`,
       });
+
+      await NotificationService.createNotification({
+        userId: payload.assigneeId,
+        organizationId,
+        title: "New Task Assigned",
+        content: `You have been assigned to task: ${task.title}`,
+        link: `/projects/${projectId}/tasks/${task.id}`
+      });
     }
 
     return task;
   }
 
-  static async getAllTasks(projectId: string, user: RequestUser, organizationId: string) {
+  static async getAllTasks(projectId: string, user: RequestUser, organizationId: string, query: any) {
     await this.verifyProjectAccess(projectId, organizationId, user);
 
-    return await prisma.task.findMany({
+    const limit = query.limit ? Number(query.limit) : 10;
+    const page = query.page ? Number(query.page) : 1;
+    const skip = (page - 1) * limit;
+
+    const total = await prisma.task.count({ where: { projectId } });
+
+    const tasks = await prisma.task.findMany({
       where: { projectId },
+      skip,
+      take: limit,
       orderBy: { createdAt: 'desc' },
       include: {
         assignee: { select: { id: true, name: true, email: true } }
       }
     });
+
+    return {
+      data: tasks,
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) }
+    };
+  }
+
+  static async getAllTasksForOrganization(organizationId: string, user: RequestUser, query: any) {
+    // Basic org member check (this assumes caller already verified basic auth/org membership via middleware)
+    const limit = query.limit ? Number(query.limit) : 50;
+    const page = query.page ? Number(query.page) : 1;
+    const skip = (page - 1) * limit;
+
+    const total = await prisma.task.count({ where: { organizationId } });
+
+    const tasks = await prisma.task.findMany({
+      where: { organizationId },
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        project: { select: { id: true, name: true } },
+        assignee: { select: { id: true, name: true, email: true } }
+      }
+    });
+
+    return {
+      data: tasks,
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) }
+    };
   }
 
   static async getTaskById(projectId: string, taskId: string, user: RequestUser, organizationId: string) {
@@ -113,6 +160,24 @@ export class TaskService {
     const task = await prisma.task.findUnique({
       where: { id: taskId, projectId },
       include: {
+        assignee: { select: { id: true, name: true, email: true } },
+        createdBy: { select: { id: true, name: true } },
+        subtasks: true
+      }
+    });
+
+    if (!task) {
+      throw new Error("Task not found");
+    }
+
+    return task;
+  }
+
+  static async getTaskByIdForOrganization(taskId: string, user: RequestUser, organizationId: string) {
+    const task = await prisma.task.findUnique({
+      where: { id: taskId, organizationId },
+      include: {
+        project: { select: { id: true, name: true } },
         assignee: { select: { id: true, name: true, email: true } },
         createdBy: { select: { id: true, name: true } },
         subtasks: true
@@ -135,6 +200,21 @@ export class TaskService {
 
     if (!task) {
       throw new Error("Task not found");
+    }
+
+    if (payload.status && payload.status !== task.status) {
+      const allowedTransitions: Record<string, string[]> = {
+        'TODO': ['IN_PROGRESS', 'CANCELLED'],
+        'IN_PROGRESS': ['IN_REVIEW', 'BLOCKED', 'CANCELLED'],
+        'IN_REVIEW': ['DONE', 'IN_PROGRESS', 'CANCELLED'],
+        'BLOCKED': ['IN_PROGRESS', 'CANCELLED'],
+        'DONE': [] // Terminal state
+      };
+
+      const validNextStates = allowedTransitions[task.status] || [];
+      if (!validNextStates.includes(payload.status)) {
+        throw new Error(`Invalid status transition from ${task.status} to ${payload.status}`);
+      }
     }
 
     const isAssignee = task.assigneeId === user.userId;
@@ -209,6 +289,16 @@ export class TaskService {
         metadata: { newAssigneeId: payload.assigneeId, oldAssigneeId: task.assigneeId },
         description: `Task assignment changed`,
       });
+
+      if (payload.assigneeId) {
+        await NotificationService.createNotification({
+          userId: payload.assigneeId,
+          organizationId,
+          title: "Task Assigned",
+          content: `You have been assigned to task: ${task.title}`,
+          link: `/projects/${projectId}/tasks/${task.id}`
+        });
+      }
     }
 
     return updatedTask;

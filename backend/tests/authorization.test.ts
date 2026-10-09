@@ -13,6 +13,8 @@ describe('Authorization API Integration Tests', () => {
   let memberToken: string;
   let otherUserToken: string;
   let superAdminToken: string;
+  let guestToken: string;
+  let ownerToken: string;
 
   let orgId: string;
   let projectId: string;
@@ -31,6 +33,8 @@ describe('Authorization API Integration Tests', () => {
     // Create 3 Users
     const adminUser = await prisma.user.create({ data: { name: 'Admin', email: 'admin@example.com', password: hashedPassword, emailVerified: true } });
     const memberUser = await prisma.user.create({ data: { name: 'Member', email: 'member@example.com', password: hashedPassword, emailVerified: true } });
+    const guestUser = await prisma.user.create({ data: { name: 'Guest', email: 'guest@example.com', password: hashedPassword, emailVerified: true } });
+    const ownerUser = await prisma.user.create({ data: { name: 'Owner', email: 'owner@example.com', password: hashedPassword, emailVerified: true } });
     const otherUser = await prisma.user.create({ data: { name: 'Other', email: 'other@example.com', password: hashedPassword, emailVerified: true } });
     const superAdmin = await prisma.user.create({ data: { name: 'SuperAdmin', email: 'super@example.com', password: hashedPassword, emailVerified: true, platformRole: PlatformRole.SUPER_ADMIN } });
 
@@ -46,6 +50,8 @@ describe('Authorization API Integration Tests', () => {
     memberToken = await login(memberUser.email);
     otherUserToken = await login(otherUser.email);
     superAdminToken = await login(superAdmin.email);
+    guestToken = await login(guestUser.email);
+    ownerToken = await login(ownerUser.email);
 
     // Create Organization and assign roles
     const org = await prisma.organization.create({
@@ -58,8 +64,10 @@ describe('Authorization API Integration Tests', () => {
 
     await prisma.organizationMember.createMany({
       data: [
+        { organizationId: orgId, userId: ownerUser.id, organizationRole: OrganizationRole.OWNER },
         { organizationId: orgId, userId: adminUser.id, organizationRole: OrganizationRole.ORG_ADMIN },
-        { organizationId: orgId, userId: memberUser.id, organizationRole: OrganizationRole.MEMBER }
+        { organizationId: orgId, userId: memberUser.id, organizationRole: OrganizationRole.MEMBER },
+        { organizationId: orgId, userId: guestUser.id, organizationRole: OrganizationRole.GUEST }
       ]
     });
 
@@ -162,5 +170,23 @@ describe('Authorization API Integration Tests', () => {
       .set('Cookie', [`accessToken=${memberToken}`]);
     
     expect(res2.body.success).toBe(false);
+  });
+
+  it('GUEST should not be able to create a project', async () => {
+    const res = await request(app)
+      .post(`/api/v1/projects/${orgId}/create-project`)
+      .set('Cookie', [`accessToken=${guestToken}`]) // guestToken is not in scope, so I will fetch it again or store it in describe block. Wait, I didn't declare it at the top of describe. Let me declare it.
+      .send({ name: 'Guest Project', slug: 'guest-project' });
+
+    expect(res.status).toBe(403);
+  });
+
+  it('OWNER should be able to create a project', async () => {
+    const res = await request(app)
+      .post(`/api/v1/projects/${orgId}/create-project`)
+      .set('Cookie', [`accessToken=${ownerToken}`])
+      .send({ name: 'Owner Project', slug: 'owner-project' });
+
+    expect(res.status).toBe(201);
   });
 });

@@ -360,11 +360,14 @@ const deleteProject = async (organizationId: string, projectId: string, userId: 
         throw new Error("Project not found")
     }
 
-     
-    const project = await prisma.project.delete({
+    const project = await prisma.project.update({
         where: {
             id: projectId,
-        } 
+        },
+        data: {
+            status: 'ARCHIVED',
+            deletedAt: new Date()
+        }
     })
 
     await ActivityService.createActivity({

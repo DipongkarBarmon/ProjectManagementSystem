@@ -23,7 +23,9 @@ const getAllTeams = catchAsync(async (req: Request, res: Response,next:NextFunct
     success: true, 
     statusCode: httpStatus.OK,
      message: "Teams retrieved successfully",
-     data: result });
+     data: result.data,
+     meta: result.meta 
+   });
 });
 
 const getTeamById = catchAsync(async (req: Request, res: Response,next: NextFunction) => {

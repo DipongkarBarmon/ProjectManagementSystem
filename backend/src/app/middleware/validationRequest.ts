@@ -11,11 +11,12 @@ type RequestWithFile = Request & {
 export const validationRequest = (zodSchema : z.ZodObject) => {
     return catchAsync(async(req : RequestWithFile,res : Response,next : NextFunction)=> {
          // Enforce fallback objects so Zod never receives raw undefined parameters
-        const bodyData = req.body || {};
         const dataToValidate = {
-             body :bodyData,
+             body : req.body || {},
+             query: req.query || {},
+             params: req.params || {},
             file: req.file || undefined,
-            files: req.files || undefined, // Optional: handle multi-file uploads if using multer
+            files: req.files || undefined,
         };
 
            const result = zodSchema.safeParse(dataToValidate)
@@ -25,7 +26,9 @@ export const validationRequest = (zodSchema : z.ZodObject) => {
               throw new Error(result.error.issues[0].message)
            }
 
-           req.body = result.data.body
+           if (result.data.body) req.body = result.data.body;
+           if (result.data.query) req.query = result.data.query;
+           if (result.data.params) req.params = result.data.params;
            next()
     })
 }

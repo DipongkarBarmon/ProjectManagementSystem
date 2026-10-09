@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { jwtDecode } from "jwt-decode";
 import { api } from "@/lib/api-client";
+import { useAuthStore } from "@/lib/store/auth-store";
 
 function GoogleSignIn({ onError, onSuccess }: { onError: (message: string) => void; onSuccess: (token: string) => void }) {
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
@@ -21,16 +22,30 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const [error, setError] = useState("");
   const isLogin = mode === "login";
 
-  function completeAuth(data: unknown) {
-    localStorage.setItem("taskflow_session", JSON.stringify(data ?? { authenticated: true }));
-    let role = "USER";
-    if (typeof data === "object" && data !== null && "user" in data) {
-      const userData = (data as any).user;
-      if (userData && typeof userData.platformRole === "string") {
-        role = userData.platformRole;
+  const setAuthUser = useAuthStore((state) => state.login);
+
+  async function completeAuth() {
+    try {
+      const res = await api.auth.me();
+      if (res.success && res.data) {
+        setAuthUser(res.data);
+        
+        let target = res.data.platformRole === "SUPER_ADMIN" ? "/admin" : "/dashboard";
+        if (typeof window !== "undefined") {
+          const params = new URLSearchParams(window.location.search);
+          const callbackUrl = params.get("callbackUrl");
+          if (callbackUrl && callbackUrl.startsWith("/")) {
+            target = callbackUrl;
+          }
+        }
+        
+        router.push(target);
+      } else {
+        throw new Error("Failed to fetch user profile after login.");
       }
+    } catch (err) {
+      setError("Failed to initialize session.");
     }
-    router.push(role === "SUPER_ADMIN" ? "/admin" : "/dashboard");
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -41,8 +56,8 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     const payload = Object.fromEntries(formData.entries()) as Record<string, string>;
     try {
       if (isLogin) {
-        const result = await api.auth.login(payload);
-        completeAuth(result.data);
+        await api.auth.login(payload);
+        await completeAuth();
       } else {
         const result = await api.auth.register(formData);
         router.push(`/verify-email?email=${encodeURIComponent(payload.email)}`);
@@ -57,7 +72,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   async function handleGoogle(token: string) {
     setLoading(true);
     setError("");
-    try { const result = await api.auth.google(token); completeAuth(result.data); } catch (requestError) { setError(requestError instanceof Error ? requestError.message : "Google sign-in failed."); } finally { setLoading(false); }
+    try { await api.auth.google(token); await completeAuth(); } catch (requestError) { setError(requestError instanceof Error ? requestError.message : "Google sign-in failed."); } finally { setLoading(false); }
   }
 
   return (

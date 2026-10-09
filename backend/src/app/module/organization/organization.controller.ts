@@ -87,11 +87,54 @@ const deleteOrganization = catchAsync(async(req : Request,res : Response , next 
 })
 
 
+const getMembers = catchAsync(async(req : Request,res : Response , next : NextFunction)=> {
+    const organizationId = req.params.organizationId
+    const query = req.query
+    const result =await OrganizationService.getMembers(organizationId as string, query)
+    sendResponse(res,{
+       success: true,
+       statusCode : httpStatus.OK,
+       message : "Organization members fetched successfully!",
+       data : result.data,
+       meta : result.meta
+    })
+})
+
+const updateMemberRole = catchAsync(async(req : Request,res : Response , next : NextFunction)=> {
+    const organizationId = req.params.organizationId
+    const memberId = req.params.memberId
+    const userId = req.user?.userId
+    const { role } = req.body
+    const result =await OrganizationService.updateMemberRole(organizationId as string, memberId as string, role, userId as string)
+    sendResponse(res,{
+       success: true,
+       statusCode : httpStatus.OK,
+       message : "Member role updated successfully!",
+       data : result.data
+    })
+})
+
+const removeMember = catchAsync(async(req : Request,res : Response , next : NextFunction)=> {
+    const organizationId = req.params.organizationId
+    const memberId = req.params.memberId
+    const userId = req.user?.userId
+    const result =await OrganizationService.removeMember(organizationId as string, memberId as string, userId as string)
+    sendResponse(res,{
+       success: true,
+       statusCode : httpStatus.OK,
+       message : "Member removed successfully!",
+       data : result.data
+    })
+})
+
 export const OrganizationController = {
     createOrganization,
     updateLogo,
     updateOrganizationInfo,
     getOrganizationById,
     getAllOrganizations,
-    deleteOrganization
+    deleteOrganization,
+    getMembers,
+    updateMemberRole,
+    removeMember
 }

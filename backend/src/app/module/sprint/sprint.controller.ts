@@ -18,12 +18,13 @@ const createSprint = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAllSprints = catchAsync(async (req: Request, res: Response) => {
-  const result = await SprintService.getAllSprints(req.params.projectId as string, req.user!, req.params.organizationId as string);
+  const result = await SprintService.getAllSprints(req.params.projectId as string, req.user!, req.params.organizationId as string, req.query);
   sendResponse(res, { 
     success: true, 
     statusCode: httpStatus.OK, 
     message: "Sprints retrieved successfully", 
-    data: result 
+    data: result.data,
+    meta: result.meta 
   });
 });
 
@@ -62,10 +63,22 @@ const deleteSprint = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const completeSprint = catchAsync(async (req: Request, res: Response) => {
+  const result = await SprintService.completeSprint(req.params.projectId as string, req.params.sprintId as string, req.user!, req.params.organizationId as string);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Sprint completed successfully",
+    data: result
+  });
+});
+
 export const SprintController = {
   createSprint,
   getAllSprints,
   getSprintById,
   updateSprint,
-  deleteSprint
+  deleteSprint,
+  completeSprint
 };

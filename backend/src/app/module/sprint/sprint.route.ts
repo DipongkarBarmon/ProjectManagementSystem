@@ -20,4 +20,6 @@ router.get("/organizations/:organizationId/projects/:projectId/get-sprint/:sprin
 
 router.delete("/organizations/:organizationId/projects/:projectId/delete-sprint/:sprintId", auth({ permissions: [Permissions.SPRINT_UPDATE] }), SprintController.deleteSprint);
 
+router.post("/organizations/:organizationId/projects/:projectId/complete-sprint/:sprintId", auth({ permissions: [Permissions.SPRINT_UPDATE] }), SprintController.completeSprint);
+
 export const SprintRoutes = router;

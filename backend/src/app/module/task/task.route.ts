@@ -9,6 +9,8 @@ const router = Router({ mergeParams: true });
 
 
 router.post("/organizations/:organizationId/projects/:projectId/create-tasks", auth({ permissions: [Permissions.TASK_CREATE] }), validationRequest(createTaskSchema), TaskController.createTask);
+router.get("/organizations/:organizationId/get-all-tasks", auth({ permissions: [Permissions.TASK_READ] }), TaskController.getAllTasksForOrganization);
+router.get("/organizations/:organizationId/get-task/:taskId", auth({ permissions: [Permissions.TASK_READ] }), TaskController.getTaskByIdForOrganization);
 router.get("/organizations/:organizationId/projects/:projectId/get-all-tasks", auth({ permissions: [Permissions.TASK_READ] }), TaskController.getAllTasks);
 router.get("/organizations/:organizationId/projects/:projectId/get-task/:taskId", auth({ permissions: [Permissions.TASK_READ] }), TaskController.getTaskById);
 router.patch("/organizations/:organizationId/projects/:projectId/update-task/:taskId", auth({ permissions: [Permissions.TASK_UPDATE] }), validationRequest(updateTaskSchema), TaskController.updateTask);

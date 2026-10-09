@@ -8,6 +8,7 @@ import config from "../../config"
 import { InvitationStatus, ActivityAction } from "../../../../generated/prisma/enums"
 import { InvitationWhereInput } from "../../../../generated/prisma/models"
 import { ActivityService } from "../activity/activity.service"
+import { OrganizationBillingService } from "../organizationbilling/organizationbilling.service"
 
 
 const hashInvitationToken = (token: string) =>
@@ -59,6 +60,7 @@ const sentInvitations = async (payload :ISentInvitationPayload,organizationId : 
     
 
     // Here you can implement the logic to send the invitation, e.g., save it to the database, send an email, etc.
+    await OrganizationBillingService.checkLimit(organizationId, "MEMBER");
     
      const token = crypto.randomBytes(32).toString("hex")
      console.log("Generated token:", token)

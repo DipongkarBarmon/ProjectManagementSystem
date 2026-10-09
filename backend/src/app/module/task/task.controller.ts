@@ -10,12 +10,22 @@ const createTask = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAllTasks = catchAsync(async (req: Request, res: Response) => {
-  const result = await TaskService.getAllTasks(req.params.projectId as string, req.user!, req.params.organizationId as string);
-  sendResponse(res, { success: true, statusCode: httpStatus.OK, message: "Tasks retrieved successfully", data: result });
+  const result = await TaskService.getAllTasks(req.params.projectId as string, req.user!, req.params.organizationId as string, req.query);
+  sendResponse(res, { success: true, statusCode: httpStatus.OK, message: "Tasks retrieved successfully", data: result.data, meta: result.meta });
+});
+
+const getAllTasksForOrganization = catchAsync(async (req: Request, res: Response) => {
+  const result = await TaskService.getAllTasksForOrganization(req.params.organizationId as string, req.user!, req.query);
+  sendResponse(res, { success: true, statusCode: httpStatus.OK, message: "Tasks retrieved successfully", data: result.data, meta: result.meta });
 });
 
 const getTaskById = catchAsync(async (req: Request, res: Response) => {
   const result = await TaskService.getTaskById(req.params.projectId as string, req.params.taskId as string, req.user!, req.params.organizationId as string);
+  sendResponse(res, { success: true, statusCode: httpStatus.OK, message: "Task retrieved successfully", data: result });
+});
+
+const getTaskByIdForOrganization = catchAsync(async (req: Request, res: Response) => {
+  const result = await TaskService.getTaskByIdForOrganization(req.params.taskId as string, req.user!, req.params.organizationId as string);
   sendResponse(res, { success: true, statusCode: httpStatus.OK, message: "Task retrieved successfully", data: result });
 });
 
@@ -32,7 +42,9 @@ const deleteTask = catchAsync(async (req: Request, res: Response) => {
 export const TaskController = {
   createTask,
   getAllTasks,
+  getAllTasksForOrganization,
   getTaskById,
+  getTaskByIdForOrganization,
   updateTask,
   deleteTask
 };

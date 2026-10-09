@@ -388,9 +388,12 @@ const deleteOrganization = async(organizationId: string, userId: string)=> {
     if(!organization){
         throw new Error("Organization not found")
     }
-    const deletedOrganization =await prisma.organization.delete({
+    const deletedOrganization = await prisma.organization.update({
         where : {
             id : organizationId
+        },
+        data: {
+            deletedAt: new Date()
         }
     })
 
@@ -407,11 +410,99 @@ const deleteOrganization = async(organizationId: string, userId: string)=> {
          data : deletedOrganization
     }
 } 
+const getMembers = async (organizationId: string, query: any) => {
+    const limit = query.limit ? Number(query.limit) : 10;
+    const page = query.page ? Number(query.page) : 1;
+    const skip = (page - 1) * limit;
+
+    const members = await prisma.organizationMember.findMany({
+        where: { organizationId },
+        skip,
+        take: limit,
+        include: {
+            user: {
+                select: { id: true, name: true, email: true, profilePicture: true, status: true }
+            }
+        },
+        orderBy: { joinedAt: 'desc' }
+    });
+
+    const total = await prisma.organizationMember.count({ where: { organizationId } });
+
+    return {
+        data: members,
+        meta: { page, limit, total, totalPages: Math.ceil(total / limit) }
+    };
+};
+
+const updateMemberRole = async (organizationId: string, memberId: string, role: OrganizationRole, userId: string) => {
+    const member = await prisma.organizationMember.findUnique({
+        where: { organizationId_userId: { organizationId, userId: memberId } }
+    });
+
+    if (!member) {
+        throw new Error("Member not found in organization");
+    }
+
+    if (member.organizationRole === OrganizationRole.OWNER) {
+        throw new Error("Cannot change the role of an OWNER");
+    }
+
+    const updatedMember = await prisma.organizationMember.update({
+        where: { organizationId_userId: { organizationId, userId: memberId } },
+        data: { organizationRole: role }
+    });
+
+    await ActivityService.createActivity({
+        organizationId,
+        actorId: userId,
+        action: ActivityAction.UPDATED,
+        entityType: "ORGANIZATION_MEMBER",
+        entityId: memberId,
+        description: `Member role updated to ${role}`
+    });
+
+    return { data: updatedMember };
+};
+
+const removeMember = async (organizationId: string, memberId: string, userId: string) => {
+    const member = await prisma.organizationMember.findUnique({
+        where: { organizationId_userId: { organizationId, userId: memberId } }
+    });
+
+    if (!member) {
+        throw new Error("Member not found in organization");
+    }
+
+    if (member.organizationRole === OrganizationRole.OWNER) {
+        throw new Error("Cannot remove the OWNER of the organization");
+    }
+
+    const removedMember = await prisma.organizationMember.delete({
+        where: { organizationId_userId: { organizationId, userId: memberId } }
+    });
+
+    await ActivityService.createActivity({
+        organizationId,
+        actorId: userId,
+        action: ActivityAction.MEMBER_REMOVED,
+        entityType: "ORGANIZATION",
+        entityId: organizationId,
+        metadata: { removedUserId: memberId },
+        description: `Member removed from organization`
+    });
+
+    return { data: removedMember };
+};
+
 export const OrganizationService = {
   createOrganization,
   updateLogo,
   updateOrganizationInfo,
   getOrganizationById,
   getAllOrganizations,
-  deleteOrganization
+  deleteOrganization,
+  getMembers,
+  updateMemberRole,
+  removeMember
 }

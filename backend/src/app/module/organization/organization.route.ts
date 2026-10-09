@@ -21,4 +21,8 @@ router.get('/:organizationId',OrganizationController.getOrganizationById)
 
 router.delete('/:organizationId',auth({ permissions: [Permissions.ORG_UPDATE] }),OrganizationController.deleteOrganization)
 
+router.get('/:organizationId/members', auth({ permissions: [Permissions.MEMBER_READ] }), OrganizationController.getMembers)
+router.patch('/:organizationId/members/:memberId/role', auth({ permissions: [Permissions.MEMBER_UPDATE] }), OrganizationController.updateMemberRole)
+router.delete('/:organizationId/members/:memberId', auth({ permissions: [Permissions.MEMBER_REMOVE] }), OrganizationController.removeMember)
+
 export const OrganizationRouter = router

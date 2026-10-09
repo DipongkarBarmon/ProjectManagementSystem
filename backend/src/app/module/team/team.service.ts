@@ -4,6 +4,7 @@ import { OrganizationRole, ActivityAction, UserStatus } from "../../../../genera
 import { ActivityService } from "../activity/activity.service";
 import { ICreateTeamPayload, IUpdateTeamPayload, IAssignTeamLeadPayload, IAddTeamMemberPayload, IGetAllTeamsPayload } from "./team.interface";
 import { TeamWhereInput } from "../../../../generated/prisma/models";
+import { OrganizationBillingService } from "../organizationbilling/organizationbilling.service";
  
 const createTeam =async (payload: ICreateTeamPayload, user: RequestUser, organizationId: string) => {
     if (user.organizationRole !== OrganizationRole.ORG_ADMIN) {
@@ -65,6 +66,8 @@ const createTeam =async (payload: ICreateTeamPayload, user: RequestUser, organiz
     if (!existOrganization) {
       throw new Error("Organization not found.");
     } 
+
+    await OrganizationBillingService.checkLimit(organizationId, "TEAM");
 
     const team = await prisma.team.create({
       data: {
@@ -156,7 +159,8 @@ const getAllTeams = async (query: IGetAllTeamsPayload, user: RequestUser, organi
       meta :{
         total: totalTeams,
         page,
-        limit
+        limit,
+        totalPages: Math.ceil(totalTeams / limit)
       }, 
     };
   }       

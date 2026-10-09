@@ -1,12 +1,83 @@
 "use client";
 
-import { ArrowRight, Building2, Check, Users, Zap } from "lucide-react";
+import { ArrowRight, Zap, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { api } from "@/lib/api-client";
+import { useWorkspaceStore } from "@/lib/store/workspace-store";
+import { toast } from "sonner";
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
   const [workspace, setWorkspace] = useState("");
-  return <main className="min-h-screen bg-background px-5 py-10 text-foreground sm:px-8"><div className="mx-auto max-w-3xl"><div className="flex items-center gap-2 font-semibold"><span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground"><Zap size={17} fill="currentColor" /></span>TaskFlow</div><div className="mt-14 grid gap-10 lg:grid-cols-[220px_1fr] lg:items-start"><aside><p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Getting started</p><div className="mt-5 space-y-4"><p className="flex items-center gap-3 text-sm font-medium"><span className="flex size-7 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">{step > 1 ? <Check size={14} /> : "1"}</span>Workspace</p><p className="flex items-center gap-3 text-sm text-muted-foreground"><span className="flex size-7 items-center justify-center rounded-full border text-xs">2</span>Invite team</p><p className="flex items-center gap-3 text-sm text-muted-foreground"><span className="flex size-7 items-center justify-center rounded-full border text-xs">3</span>First project</p></div></aside><section className="rounded-2xl border bg-card p-6 shadow-sm sm:p-8"><p className="text-sm font-medium text-primary">Step {step} of 3</p>{step === 1 && <><h1 className="mt-2 text-2xl font-semibold tracking-tight">Set up your workspace</h1><p className="mt-2 text-sm leading-6 text-muted-foreground">Give your team a clear home for projects, tasks, and decisions.</p><label className="mt-8 block text-sm font-medium">Workspace name<input value={workspace} onChange={(event) => setWorkspace(event.target.value)} className="mt-2 h-11 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30" placeholder="Acme Software" /></label><div className="mt-8 flex justify-end"><button disabled={!workspace.trim()} onClick={() => setStep(2)} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50">Continue <ArrowRight size={16} /></button></div></>}{step === 2 && <><h1 className="mt-2 text-2xl font-semibold tracking-tight">Invite your team</h1><p className="mt-2 text-sm leading-6 text-muted-foreground">You can invite teammates now or do it later from Members.</p><div className="mt-8 rounded-xl border bg-muted/40 p-5"><div className="flex items-center gap-3"><Users size={18} className="text-primary" /><div><p className="text-sm font-semibold">Team invitations</p><p className="mt-1 text-xs text-muted-foreground">Invite by email once your workspace is ready.</p></div></div></div><div className="mt-8 flex justify-between"><button onClick={() => setStep(1)} className="rounded-lg border px-4 py-2.5 text-sm font-medium hover:bg-muted">Back</button><button onClick={() => setStep(3)} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground">Continue <ArrowRight size={16} /></button></div></>}{step === 3 && <><h1 className="mt-2 text-2xl font-semibold tracking-tight">Ready for your first project?</h1><p className="mt-2 text-sm leading-6 text-muted-foreground">Your workspace is ready. Create a project when you know what you want to ship.</p><div className="mt-8 rounded-xl border bg-blue-50 p-5 text-blue-900 dark:bg-blue-400/10 dark:text-blue-100"><div className="flex items-center gap-3"><Building2 size={18} /><p className="text-sm font-semibold">{workspace || "Your workspace"}</p></div><p className="mt-2 text-xs opacity-75">You are the workspace administrator.</p></div><div className="mt-8 flex justify-between"><button onClick={() => setStep(2)} className="rounded-lg border px-4 py-2.5 text-sm font-medium hover:bg-muted">Back</button><button onClick={() => router.push("/dashboard")} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground">Open dashboard <ArrowRight size={16} /></button></div></>}</section></div></div></main>;
+  const [loading, setLoading] = useState(false);
+  const { setActiveOrganizationId } = useWorkspaceStore();
+
+  async function handleCreateWorkspace() {
+    if (!workspace.trim()) return;
+    setLoading(true);
+    try {
+      const res = await api.organizations.create({ name: workspace.trim() });
+      if (res.success && res.data) {
+        toast.success("Workspace created successfully");
+        // We set the active organization ID directly
+        // The WorkspaceProvider on /dashboard will pick it up and refetch the orgs list
+        setActiveOrganizationId(res.data.id);
+        router.push("/dashboard");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to create workspace");
+      setLoading(false);
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-background px-5 py-10 text-foreground sm:px-8">
+      <div className="mx-auto max-w-3xl">
+        <div className="flex items-center gap-2 font-semibold">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Zap size={17} fill="currentColor" />
+          </span>
+          TaskFlow
+        </div>
+        <div className="mt-14 grid gap-10 lg:grid-cols-[220px_1fr] lg:items-start">
+          <aside>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Getting started</p>
+            <div className="mt-5 space-y-4">
+              <p className="flex items-center gap-3 text-sm font-medium">
+                <span className="flex size-7 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">1</span>
+                Workspace
+              </p>
+            </div>
+          </aside>
+          <section className="rounded-2xl border bg-card p-6 shadow-sm sm:p-8">
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight">Set up your workspace</h1>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">Give your team a clear home for projects, tasks, and decisions.</p>
+            
+            <label className="mt-8 block text-sm font-medium">
+              Workspace name
+              <input 
+                value={workspace} 
+                onChange={(event) => setWorkspace(event.target.value)} 
+                className="mt-2 h-11 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30" 
+                placeholder="Acme Software" 
+                disabled={loading}
+              />
+            </label>
+            
+            <div className="mt-8 flex justify-end">
+              <button 
+                disabled={!workspace.trim() || loading} 
+                onClick={handleCreateWorkspace} 
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+              >
+                {loading && <Loader2 size={16} className="animate-spin" />}
+                Create Workspace <ArrowRight size={16} />
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  );
 }

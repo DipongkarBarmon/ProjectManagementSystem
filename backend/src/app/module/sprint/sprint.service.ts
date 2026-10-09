@@ -90,7 +90,7 @@ const createSprint = async (projectId: string, payload: ICreateSprintPayload, us
 };  
 
 
-const getAllSprints = async (projectId: string, user: RequestUser, organizationId: string) => {
+const getAllSprints = async (projectId: string, user: RequestUser, organizationId: string, query: any) => {
   if(!organizationId ){
     throw new Error("Organization ID is required");
   } 
@@ -103,16 +103,23 @@ const getAllSprints = async (projectId: string, user: RequestUser, organizationI
     throw new Error("Project not found");
   }
 
+  const limit = query.limit ? Number(query.limit) : 10;
+  const page = query.page ? Number(query.page) : 1;
+  const skip = (page - 1) * limit;
+
+  const total = await prisma.sprint.count({ where: { projectId } });
+
   const sprints = await prisma.sprint.findMany({
-    where: { 
-      projectId
-     },
-    orderBy: { 
-      createdAt: 'desc' 
-    }
+    where: { projectId },
+    skip,
+    take: limit,
+    orderBy: { createdAt: 'desc' }
   });
 
-  return sprints;
+  return {
+    data: sprints,
+    meta: { page, limit, total, totalPages: Math.ceil(total / limit) }
+  };
 };
 
 
@@ -522,10 +529,68 @@ const deleteSprint = async (projectId: string, sprintId: string, user: RequestUs
 
 
 
-export const  SprintService = {
+const completeSprint = async (projectId: string, sprintId: string, user: RequestUser, organizationId: string) => {
+  if(!organizationId ){
+    throw new Error("Organization ID is required");
+  }
+
+  const project = await prisma.project.findUnique({
+    where: { id: projectId, organizationId },
+  });
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  const sprint = await prisma.sprint.findUnique({
+    where: { id: sprintId, projectId },
+  });
+
+  if (!sprint) {
+    throw new Error("Sprint not found");
+  }
+
+  if (sprint.status === SprintStatus.COMPLETED) {
+    throw new Error("Sprint is already completed");
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const updatedSprint = await tx.sprint.update({
+      where: { id: sprintId },
+      data: { status: SprintStatus.COMPLETED, endDate: new Date() }
+    });
+
+    // Move incomplete tasks back to backlog
+    await tx.task.updateMany({
+      where: {
+        sprintId,
+        status: { not: 'DONE' }
+      },
+      data: {
+        sprintId: null
+      }
+    });
+
+    return updatedSprint;
+  });
+
+  await ActivityService.createActivity({
+    organizationId,
+    actorId: user.userId,
+    action: ActivityAction.SPRINT_COMPLETED,
+    entityType: "SPRINT",
+    entityId: sprintId,
+    description: `Sprint ${sprint.name} completed`,
+  });
+
+  return result;
+};
+
+export const SprintService = {
   createSprint,
   getSrintById,
   updateSprint,
   deleteSprint,
-  getAllSprints
+  getAllSprints,
+  completeSprint
 };
