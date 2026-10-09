@@ -11,13 +11,16 @@ cloudinary.config({
 
 export const uploadToCloudinary = (
   fileBuffer: Buffer,
-  folder: string = "attachments"
+  folder: string = "attachments",
+  mimetype?: string
 ): Promise<any> => {
   return new Promise((resolve, reject) => {
+    // Force raw for PDFs so they can be downloaded properly without Cloudinary restrictions
+    const resourceType = mimetype === "application/pdf" ? "raw" : "auto";
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder,
-        resource_type: "auto",
+        resource_type: resourceType,
       },
       (error, result) => {
         if (error) {

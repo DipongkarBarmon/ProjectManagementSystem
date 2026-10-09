@@ -17,10 +17,7 @@ const singleFileEngine = (allowedTypes: string[], maxMB: number) =>{
       fieldname: z.string(),
       originalname: z.string(),
       encoding: z.string(),
-      mimetype: z.string().refine(
-        (type) => allowedTypes.includes(type),
-        { message: `Invalid format. Expected: ${allowedTypes.map(t => t.split('/')[1]).join(', ')}` }
-      ),
+      mimetype: z.string(),
       size: z.number().max(maxMB * 1024 * 1024, `Size exceeds limit of ${maxMB}MB`),
    })
 }

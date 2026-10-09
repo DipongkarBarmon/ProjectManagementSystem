@@ -13,7 +13,7 @@ import { AttachmentValidation } from "./attachment.validation";
 router.post(
   "/organizations/:organizationId/projects/:projectId/tasks/:taskId/attachments",
   auth({ permissions: [Permissions.PROJECT_READ] }),
-  upload.array("files"),validationRequest(AttachmentValidation.createAttachmentSchema),
+  upload.array("files"),
   AttachmentController.uploadAttachments
 );
 

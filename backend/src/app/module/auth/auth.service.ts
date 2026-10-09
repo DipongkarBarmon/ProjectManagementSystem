@@ -599,6 +599,14 @@ const resetPassword =async(payload : IResetPasswordPayload)=>{
      
     
 }
+
+const updateProfile = async (userId: string, payload: { name?: string }) => {
+   return await prisma.user.update({
+      where: { id: userId },
+      data: { name: payload.name }
+   });
+}
+
 export const AuthService = {
    registerIntoDB,
    verifyEmail,
@@ -606,5 +614,6 @@ export const AuthService = {
    googleLogin,
    refreshToken,
    forgetPassword,
-   resetPassword
+   resetPassword,
+   updateProfile
 }

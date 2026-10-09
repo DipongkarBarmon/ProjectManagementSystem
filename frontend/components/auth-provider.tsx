@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
 
-    const workspaceRoutes = ["/dashboard", "/projects", "/tasks", "/teams", "/sprints", "/activity", "/members", "/settings"];
+    const workspaceRoutes = ["/dashboard", "/projects", "/tasks", "/teams", "/sprints", "/labels", "/activity", "/members", "/settings"];
     const isWorkspaceRoute = workspaceRoutes.some(route => pathname.startsWith(route) || pathname === "/");
     if (isWorkspaceRoute && user.platformRole === "SUPER_ADMIN") {
       if (typeof window !== "undefined") {

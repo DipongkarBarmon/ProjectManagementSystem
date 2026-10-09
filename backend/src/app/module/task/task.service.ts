@@ -120,7 +120,8 @@ export class TaskService {
       take: limit,
       orderBy: { createdAt: 'desc' },
       include: {
-        assignee: { select: { id: true, name: true, email: true } }
+        assignee: { select: { id: true, name: true, email: true } },
+        taskLabels: { include: { label: true } }
       }
     });
 
@@ -150,7 +151,8 @@ export class TaskService {
       orderBy: { createdAt: 'desc' },
       include: {
         project: { select: { id: true, name: true } },
-        assignee: { select: { id: true, name: true, email: true } }
+        assignee: { select: { id: true, name: true, email: true } },
+        taskLabels: { include: { label: true } }
       }
     });
 

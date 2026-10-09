@@ -40,5 +40,6 @@ router.post('/forget-password', otpLimiter, validationRequest(AuthValidation.for
 router.post('/reset-password', authLimiter, validationRequest(AuthValidation.resetPasswordZodSchema), AuthController.resetPassword);
 router.post('/logout', AuthController.logout);
 router.get('/me', auth(), AuthController.getMe);
+router.patch('/me', auth(), validationRequest(AuthValidation.updateProfileZodSchema), AuthController.updateMe);
 
 export const AuthRouter = router;

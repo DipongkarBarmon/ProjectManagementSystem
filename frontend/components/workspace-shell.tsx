@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { Activity, Bell, Building2, ChevronDown, FolderKanban, LayoutDashboard, ListTodo, LogOut, MailPlus, Menu, Moon, Settings, ShieldCheck, Sun, Users, X, Zap } from "lucide-react";
+import { Activity, Bell, Building2, ChevronDown, FolderKanban, LayoutDashboard, ListTodo, LogOut, MailPlus, Menu, Moon, Settings, ShieldCheck, Sun, Users, X, Zap, Tag, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -19,6 +19,8 @@ const navigation = [
   { label: "Tasks", href: "/tasks", icon: ListTodo },
   { label: "Teams", href: "/teams", icon: Users },
   { label: "Sprints", href: "/sprints", icon: Zap },
+  { label: "Labels", href: "/labels", icon: Tag },
+  { label: "Comments", href: "/comments", icon: MessageSquare },
 ];
 
 const management = [

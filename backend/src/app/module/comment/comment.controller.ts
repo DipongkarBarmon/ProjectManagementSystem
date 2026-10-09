@@ -24,9 +24,15 @@ const deleteComment = catchAsync(async (req: Request, res: Response) => {
   sendResponse(res, { success: true, statusCode: httpStatus.OK, message: "Comment deleted successfully", data: result });
 });
 
+const getOrgComments = catchAsync(async (req: Request, res: Response) => {
+  const result = await CommentService.getOrgComments(req.user!, req.params.organizationId as string);
+  sendResponse(res, { success: true, statusCode: httpStatus.OK, message: "Organization comments retrieved successfully", data: result });
+});
+
 export const CommentController = {
   createComment,
   getComments,
   updateComment,
-  deleteComment
+  deleteComment,
+  getOrgComments
 };

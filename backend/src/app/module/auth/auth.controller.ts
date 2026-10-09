@@ -192,6 +192,16 @@ const getMe = catchAsync(async (req: Request, res: Response) => {
 	});
 });
 
+const updateMe = catchAsync(async (req: Request, res: Response) => {
+	const result = await AuthService.updateProfile(req.user!.userId, req.body);
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "Profile updated successfully",
+		data: { user: result },
+	});
+});
+
 export const AuthController = {
    register,
    verifyEmail,
@@ -201,5 +211,6 @@ export const AuthController = {
    forgetPassword,
    resetPassword,
    logout,
-   getMe
+   getMe,
+   updateMe
 }

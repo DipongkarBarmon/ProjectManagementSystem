@@ -5,11 +5,28 @@ import { WorkspaceShell } from "@/components/workspace-shell";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useWorkspaceStore } from "@/lib/store/workspace-store";
 import { Loader2, CreditCard, User, Building } from "lucide-react";
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
+import { toast } from "sonner";
 
 export default function SettingsPage() {
   const { user } = useAuthStore();
   const { activeOrganizationId, organizations } = useWorkspaceStore();
   
+  const queryClient = useQueryClient();
+  const [name, setName] = useState(user?.name || "");
+
+  const updateProfileMutation = useMutation({
+    mutationFn: () => api.auth.updateProfile({ name }),
+    onSuccess: (res) => {
+      useAuthStore.setState({ user: res.data.user });
+      queryClient.invalidateQueries();
+      toast.success("Profile updated successfully");
+    },
+    onError: (error: Error) => toast.error(error.message)
+  });
+
   const activeOrg = organizations.find((o:any) => o.id === activeOrganizationId);
   const isOrgAdmin = activeOrg?.myRole === 'OWNER' || activeOrg?.myRole === 'ORG_ADMIN';
 
@@ -35,9 +52,9 @@ export default function SettingsPage() {
                   <label className="text-sm font-medium">Name</label>
                   <input 
                     type="text" 
-                    defaultValue={user?.name}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
                     className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30" 
-                    readOnly
                   />
                 </div>
                 <div>
@@ -52,8 +69,12 @@ export default function SettingsPage() {
                 </div>
               </div>
               <div className="mt-6 flex justify-end">
-                <button className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground opacity-50 cursor-not-allowed">
-                  Save Changes
+                <button 
+                  onClick={() => updateProfileMutation.mutate()} 
+                  disabled={updateProfileMutation.isPending || !name.trim() || name === user?.name}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                >
+                  {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             </div>

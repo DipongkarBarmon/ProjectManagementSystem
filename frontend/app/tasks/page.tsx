@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { Filter, MoreHorizontal, Plus, Search, Loader2, Pencil, Trash2 } from "lucide-react";
+import { Filter, MoreHorizontal, Plus, Search, Loader2, Pencil, Trash2, Tag } from "lucide-react";
 import { useState } from "react";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,6 +17,7 @@ export default function TasksPage() {
   const [filter, setFilter] = useState("All");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
+  const [labelsModalTask, setLabelsModalTask] = useState<any>(null);
   const [form, setForm] = useState({ projectId: "", title: "", description: "", priority: "MEDIUM", status: "TODO", sprintId: "", assigneeId: "", dueDate: "" });
   const queryClient = useQueryClient();
 
@@ -35,6 +36,13 @@ export default function TasksPage() {
 
   const rawTasks = tasksRes?.data?.data || tasksRes?.data || [];
   const allTasks = Array.isArray(rawTasks) ? rawTasks : [];
+
+  const { data: labelsRes } = useQuery({
+    queryKey: ['labels', activeOrganizationId],
+    queryFn: () => api.labels.list(activeOrganizationId!),
+    enabled: !!activeOrganizationId
+  });
+  const labels = Array.isArray(labelsRes?.data?.data || labelsRes?.data) ? (labelsRes?.data?.data || labelsRes?.data) : [];
 
   const { data: sprintsRes } = useQuery({
     queryKey: ['sprints', activeOrganizationId, form.projectId],
@@ -135,6 +143,24 @@ export default function TasksPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const assignLabelMutation = useMutation({
+    mutationFn: (labelId: string) => api.labels.assign(activeOrganizationId!, labelId, labelsModalTask.id),
+    onSuccess: () => {
+      toast.success("Label assigned");
+      queryClient.invalidateQueries({ queryKey: ["tasks", activeOrganizationId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const removeLabelMutation = useMutation({
+    mutationFn: (labelId: string) => api.labels.remove(activeOrganizationId!, labelId, labelsModalTask.id),
+    onSuccess: () => {
+      toast.success("Label removed");
+      queryClient.invalidateQueries({ queryKey: ["tasks", activeOrganizationId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   return (
     <WorkspaceShell title="Tasks">
       <main className="mx-auto max-w-6xl p-5 sm:p-8">
@@ -194,6 +220,64 @@ export default function TasksPage() {
           </form>
         )}
 
+        {(() => {
+          if (!labelsModalTask) return null;
+          const activeLabelsModalTask = allTasks.find((t: any) => t.id === labelsModalTask.id) || labelsModalTask;
+          
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+              <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-lg">
+                <h2 className="text-lg font-semibold">Manage Labels</h2>
+                <p className="text-sm text-muted-foreground line-clamp-1">{activeLabelsModalTask.title}</p>
+                
+                <div className="mt-4 flex flex-col gap-2">
+                  <select id="label-select" className="rounded-lg border bg-background px-3 py-2 text-sm" defaultValue="">
+                    <option value="" disabled>Select a label to assign...</option>
+                    {labels
+                      .filter((lbl: any) => !activeLabelsModalTask.taskLabels?.some((tl: any) => tl.labelId === lbl.id))
+                      .map((l: any) => (
+                        <option key={l.id} value={l.id}>{l.name}</option>
+                      ))}
+                  </select>
+                  <button 
+                    onClick={() => {
+                      const select = document.getElementById('label-select') as HTMLSelectElement;
+                      if (select.value) {
+                        assignLabelMutation.mutate(select.value);
+                        select.value = "";
+                      }
+                    }} 
+                    disabled={assignLabelMutation.isPending}
+                    className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
+                  >
+                    Assign Label
+                  </button>
+                </div>
+
+                <div className="mt-6 flex flex-col gap-2 max-h-60 overflow-y-auto">
+                  {!activeLabelsModalTask.taskLabels || activeLabelsModalTask.taskLabels.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">No labels assigned.</p>
+                  ) : (
+                    activeLabelsModalTask.taskLabels.map((tl: any) => (
+                      <div key={tl.labelId} className="flex items-center justify-between rounded-lg border p-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full" style={{ backgroundColor: tl.label?.color || '#ccc' }}></span>
+                          <div className="text-sm font-medium">{tl.label?.name || 'Unknown Label'}</div>
+                        </div>
+                        <button onClick={() => removeLabelMutation.mutate(tl.labelId)} disabled={removeLabelMutation.isPending} className="text-red-500 hover:text-red-700 text-xs">Remove</button>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="mt-6 flex justify-end">
+                  <button onClick={() => setLabelsModalTask(null)} className="rounded-lg border px-4 py-2 text-sm font-semibold">Close</button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           <div className="rounded-xl border bg-card p-5">
             <p className="text-xs text-muted-foreground">Total tasks</p>
@@ -238,6 +322,7 @@ export default function TasksPage() {
                   <th className="px-5 py-3 font-semibold">Project</th>
                   <th className="px-5 py-3 font-semibold">Status</th>
                   <th className="px-5 py-3 font-semibold">Priority</th>
+                  <th className="px-5 py-3 font-semibold">Labels</th>
                   <th className="px-5 py-3 font-semibold">Updated</th>
                   <th />
                 </tr>
@@ -289,11 +374,22 @@ export default function TasksPage() {
                       <td className="px-5 py-4 text-xs">
                         {row.priority}
                       </td>
+                      <td className="px-5 py-4">
+                        <div className="flex flex-wrap gap-1">
+                          {row.taskLabels?.map((tl: any) => (
+                            <span key={tl.labelId} className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border" style={{ borderColor: tl.label?.color, color: tl.label?.color }}>
+                              {tl.label?.name}
+                            </span>
+                          ))}
+                          {(!row.taskLabels || row.taskLabels.length === 0) && <span className="text-xs text-muted-foreground">-</span>}
+                        </div>
+                      </td>
                       <td className="px-5 py-4 text-xs text-muted-foreground">
                         {format(new Date(row.updatedAt), 'MMM d, yyyy')}
                       </td>
                       <td className="px-5 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <button onClick={(e) => { e.stopPropagation(); setLabelsModalTask(row); }} className="inline-flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-medium hover:bg-muted"><Tag size={13} /> Labels</button>
                           <button onClick={(e) => { e.stopPropagation(); openEdit(row); }} className="inline-flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-medium hover:bg-muted"><Pencil size={13} /> Edit</button>
                           <button onClick={(e) => { e.stopPropagation(); if (window.confirm(`Delete ${row.title}? This cannot be undone.`)) deleteMutation.mutate({ projectId: row.projectId, taskId: row.id }); }} disabled={deleteMutation.isPending} className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"><Trash2 size={13} /> Delete</button>
                         </div>

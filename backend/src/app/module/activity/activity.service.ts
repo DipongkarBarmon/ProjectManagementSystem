@@ -62,7 +62,7 @@ const getEntityActivities = async (organizationId: string, entityType: string, e
   }  
   
   const activities =   await prisma.activity.findMany({
-    where: { organizationId },
+    where: { organizationId, entityType, entityId },
     orderBy: { createdAt: 'desc' },
     take: 50,
     include: {

@@ -270,6 +270,7 @@ export const api = {
     listAll: (orgId: string, params?: PaginationParams, options?: RequestInit) => request<any>(`/tasks/organizations/${orgId}/get-all-tasks${buildQuery(params)}`, options),
   },
   comments: {
+    listGlobal: (orgId: string, options?: RequestInit) => request<any>(`/comments/organizations/${orgId}/comments`, options),
     list: (orgId: string, projectId: string, taskId: string, options?: RequestInit) => request<any>(`/comments/organizations/${orgId}/projects/${projectId}/tasks/${taskId}/get-comments`, options),
     create: (orgId: string, projectId: string, taskId: string, content: string, options?: RequestInit) => request<any>(`/comments/organizations/${orgId}/projects/${projectId}/tasks/${taskId}/create-comments`, { ...options, method: "POST", body: JSON.stringify({ content }) }),
     update: (orgId: string, projectId: string, commentId: string, content: string, options?: RequestInit) => request<any>(`/comments/organizations/${orgId}/projects/${projectId}/update-comments/${commentId}`, { ...options, method: "PATCH", body: JSON.stringify({ content }) }),
@@ -299,6 +300,7 @@ export const api = {
   },
   activity: {
     list: (orgId: string, params?: PaginationParams, options?: RequestInit) => request<any>(`/activities/organizations/${orgId}/get-activities${buildQuery(params)}`, options),
+    listForEntity: (orgId: string, entityType: string, entityId: string, params?: PaginationParams, options?: RequestInit) => request<any>(`/activities/organizations/${orgId}/activities/${entityType}/${entityId}${buildQuery(params)}`, options),
   },
   billing: {
     availablePlans: (options?: RequestInit) => request<BillingPlan[]>("/billing/available-plans", options),

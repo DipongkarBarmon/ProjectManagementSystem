@@ -12,6 +12,8 @@ router.post("/organizations/:organizationId/projects/:projectId/tasks/:taskId/cr
 
 router.get("/organizations/:organizationId/projects/:projectId/tasks/:taskId/get-comments", auth({ permissions: [Permissions.PROJECT_READ] }), CommentController.getComments);
 
+router.get("/organizations/:organizationId/comments", auth({ permissions: [Permissions.PROJECT_READ] }), CommentController.getOrgComments);
+
 router.patch("/organizations/:organizationId/projects/:projectId/update-comments/:commentId", auth({ permissions: [Permissions.COMMENT_UPDATE] }), validationRequest(updateCommentSchema), CommentController.updateComment);
 
 router.delete("/organizations/:organizationId/projects/:projectId/delete-comments/:commentId", auth({ permissions: [Permissions.COMMENT_DELETE] }), CommentController.deleteComment);

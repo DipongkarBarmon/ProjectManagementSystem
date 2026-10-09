@@ -85,10 +85,18 @@ const resetPasswordZodSchema =z.object({
       otp : z.string()
    })
 })
+
+const updateProfileZodSchema = z.object({
+   body: z.object({
+      name: z.string().min(1, "Name cannot be empty").optional()
+   })
+})
+
 export const AuthValidation = {
    registerZodSchema,
    verifyEmailZodSchema,
    loginZodSchema,
    forgetPasswordZodSchema,
-   resetPasswordZodSchema
+   resetPasswordZodSchema,
+   updateProfileZodSchema
 }

@@ -42,7 +42,7 @@ export class AttachmentService {
 
     const attachments = await Promise.all(
       files.map(async (file) => {
-        const cloudinaryResult = await uploadToCloudinary(file.buffer);
+        const cloudinaryResult = await uploadToCloudinary(file.buffer, "attachments", file.mimetype);
         
         return prisma.attachment.create({
           data: {

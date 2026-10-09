@@ -71,7 +71,17 @@ export class CommentService {
       where: { taskId },
       orderBy: { createdAt: 'asc' },
       include: {
-        user: { select: { id: true, name: true, avatar: true } }
+        user: { 
+          select: { 
+            id: true, 
+            name: true, 
+            avatar: true,
+            memberships: {
+              where: { organizationId },
+              select: { organizationRole: true }
+            }
+          } 
+        }
       }
     });
   }
@@ -114,6 +124,37 @@ export class CommentService {
 
     return await prisma.comment.delete({
       where: { id: commentId }
+    });
+  }
+
+  static async getOrgComments(user: RequestUser, organizationId: string) {
+    const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN;
+
+    return await prisma.comment.findMany({
+      where: {
+        task: {
+          project: {
+            organizationId,
+            ...(isOrgAdmin ? {} : { members: { some: { userId: user.userId } } })
+          }
+        }
+      },
+      include: {
+        user: { 
+          select: { 
+            id: true, 
+            name: true, 
+            avatar: true,
+            memberships: {
+              where: { organizationId },
+              select: { organizationRole: true }
+            }
+          } 
+        },
+        task: { select: { id: true, title: true, projectId: true, project: { select: { id: true, name: true } } } }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50
     });
   }
 }
