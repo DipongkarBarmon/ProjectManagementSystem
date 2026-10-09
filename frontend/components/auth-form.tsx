@@ -20,6 +20,12 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const isLogin = mode === "login";
+  const demoAccounts = [
+    { role: "Organization admin", email: process.env.NEXT_PUBLIC_DEMO_ADMIN_EMAIL, password: process.env.NEXT_PUBLIC_DEMO_ADMIN_PASSWORD },
+    { role: "Project manager", email: process.env.NEXT_PUBLIC_DEMO_PROJECT_MANAGER_EMAIL, password: process.env.NEXT_PUBLIC_DEMO_PROJECT_MANAGER_PASSWORD },
+    { role: "Team leader", email: process.env.NEXT_PUBLIC_DEMO_TEAM_LEADER_EMAIL, password: process.env.NEXT_PUBLIC_DEMO_TEAM_LEADER_PASSWORD },
+    { role: "Member", email: process.env.NEXT_PUBLIC_DEMO_MEMBER_EMAIL, password: process.env.NEXT_PUBLIC_DEMO_MEMBER_PASSWORD },
+  ].filter((account): account is { role: string; email: string; password: string } => Boolean(account.email && account.password));
 
   const setAuthUser = useAuthStore((state) => state.login);
 
@@ -75,6 +81,20 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     try { await api.auth.google(token); await completeAuth(); } catch (requestError) { setError(requestError instanceof Error ? requestError.message : "Google sign-in failed."); } finally { setLoading(false); }
   }
 
+  function fillDemoAccount(email: string, password: string) {
+    const form = document.querySelector("form");
+    if (!form) return;
+    const emailInput = form.elements.namedItem("email");
+    const passwordInput = form.elements.namedItem("password");
+    if (emailInput instanceof HTMLInputElement && passwordInput instanceof HTMLInputElement) {
+      emailInput.value = email;
+      passwordInput.value = password;
+      emailInput.dispatchEvent(new Event("input", { bubbles: true }));
+      passwordInput.dispatchEvent(new Event("input", { bubbles: true }));
+      setError("");
+    }
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-4 py-8 sm:px-5 sm:py-10">
       <div className="w-full max-w-md">
@@ -100,6 +120,20 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
             <button disabled={loading} className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary text-sm font-semibold text-primary-foreground hover:bg-blue-700 disabled:opacity-60">{loading && <Loader2 size={16} className="animate-spin" />}{isLogin ? "Sign in" : "Create account"}<ArrowRight size={16} /></button>
           </form>
           <GoogleSignIn onError={setError} onSuccess={handleGoogle} />
+          {isLogin && demoAccounts.length > 0 && (
+            <div className="mt-6 rounded-xl border border-dashed bg-muted/30 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Demo access</p>
+              <p className="mt-1 text-xs text-muted-foreground">Choose a seeded role to fill the login form.</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {demoAccounts.map((account) => (
+                  <button key={account.role} type="button" onClick={() => fillDemoAccount(account.email, account.password)} className="rounded-lg border bg-background px-3 py-2 text-left text-xs hover:bg-muted">
+                    <span className="block font-semibold">{account.role}</span>
+                    <span className="mt-0.5 block truncate text-muted-foreground">{account.email}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && <div className="my-5 flex items-center gap-3 text-[11px] text-muted-foreground"><span className="h-px flex-1 bg-border" />or continue with Google<span className="h-px flex-1 bg-border" /></div>}
           <p className="mt-7 text-center text-sm text-muted-foreground">{isLogin ? "New to TaskFlow?" : "Already have an account?"} <Link href={isLogin ? "/register" : "/login"} className="font-semibold text-primary hover:underline">{isLogin ? "Create an account" : "Sign in"}</Link></p>
         </div>

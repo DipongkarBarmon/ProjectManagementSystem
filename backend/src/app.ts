@@ -24,7 +24,18 @@ import { AdminBillingRoutes } from './app/module/adminbilling/adminbilling.route
 const app  : Application=express()
 app.use(
 	cors({
-		origin:config.frontend_url ,
+		origin: (requestOrigin, callback) => {
+			const allowedOrigins = [
+				config.frontend_url,
+				"https://project-management-system-frontend-gamma.vercel.app",
+				"http://localhost:3000",
+			].filter(Boolean);
+			if (!requestOrigin || allowedOrigins.includes(requestOrigin)) {
+				callback(null, true);
+				return;
+			}
+			callback(new Error("Origin is not allowed by CORS"));
+		},
 		credentials: true,
 	}),
 );

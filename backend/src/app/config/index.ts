@@ -34,6 +34,18 @@ const config = {
   super_admin_name : process.env.SUPER_ADMIN_NAME!,
   super_admin_email : process.env.SUPER_ADMIN_EMAIL!,
   super_admin_password : process.env.SUPER_ADMIN_PASSWORD!,
+  super_organizer_name : process.env.SUPER_ORGANIZER_NAME!,
+  super_organizer_email : process.env.SUPER_ORGANIZER_EMAIL!,
+  super_organizer_password : process.env.SUPER_ORGANIZER_PASSWORD!,
+  super_organizer_manager_name : process.env.SUPER_ORGANIZER_MANAGER_NAME!,
+  super_organizer_manager_email : process.env.SUPER_ORGANIZER_MANAGER_EMAIL!,
+  super_organizer_manager_password : process.env.SUPER_ORGANIZER_MANAGER_PASSWORD!,
+  super_organizer_team_leader_name : process.env.SUPER_ORGANIZER_TEAM_LEADER_NAME!,
+  super_organizer_team_leader_email : process.env.SUPER_ORGANIZER_TEAM_LEADER_EMAIL!,
+  super_organizer_team_leader_password : process.env.SUPER_ORGANIZER_TEAM_LEADER_PASSWORD!,
+  super_organizer_member_name : process.env.SUPER_ORGANIZER_MEMBER_NAME!,
+  super_organizer_member_email : process.env.SUPER_ORGANIZER_MEMBER_EMAIL!,
+  super_organizer_member_password : process.env.SUPER_ORGANIZER_MEMBER_PASSWORD!
 }
 export default config
-
+ 

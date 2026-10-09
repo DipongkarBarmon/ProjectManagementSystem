@@ -46,7 +46,19 @@ var config = {
   bkash_merchant_number: process.env.BKASH_MERCHANT_NUMBER,
   super_admin_name: process.env.SUPER_ADMIN_NAME,
   super_admin_email: process.env.SUPER_ADMIN_EMAIL,
-  super_admin_password: process.env.SUPER_ADMIN_PASSWORD
+  super_admin_password: process.env.SUPER_ADMIN_PASSWORD,
+  super_organizer_name: process.env.SUPER_ORGANIZER_NAME,
+  super_organizer_email: process.env.SUPER_ORGANIZER_EMAIL,
+  super_organizer_password: process.env.SUPER_ORGANIZER_PASSWORD,
+  super_organizer_manager_name: process.env.SUPER_ORGANIZER_MANAGER_NAME,
+  super_organizer_manager_email: process.env.SUPER_ORGANIZER_MANAGER_EMAIL,
+  super_organizer_manager_password: process.env.SUPER_ORGANIZER_MANAGER_PASSWORD,
+  super_organizer_team_leader_name: process.env.SUPER_ORGANIZER_TEAM_LEADER_NAME,
+  super_organizer_team_leader_email: process.env.SUPER_ORGANIZER_TEAM_LEADER_EMAIL,
+  super_organizer_team_leader_password: process.env.SUPER_ORGANIZER_TEAM_LEADER_PASSWORD,
+  super_organizer_member_name: process.env.SUPER_ORGANIZER_MEMBER_NAME,
+  super_organizer_member_email: process.env.SUPER_ORGANIZER_MEMBER_EMAIL,
+  super_organizer_member_password: process.env.SUPER_ORGANIZER_MEMBER_PASSWORD
 };
 var config_default = config;
 
@@ -516,6 +528,18 @@ var InvitationStatus = {
   ACCEPTED: "ACCEPTED",
   EXPIRED: "EXPIRED",
   CANCELLED: "CANCELLED"
+};
+var NotificationType = {
+  TASK_ASSIGNED: "TASK_ASSIGNED",
+  TASK_MENTIONED: "TASK_MENTIONED",
+  COMMENT_ADDED: "COMMENT_ADDED",
+  TASK_STATUS_CHANGED: "TASK_STATUS_CHANGED",
+  PROJECT_INVITATION: "PROJECT_INVITATION",
+  TEAM_INVITATION: "TEAM_INVITATION",
+  SPRINT_STARTED: "SPRINT_STARTED",
+  SPRINT_COMPLETED: "SPRINT_COMPLETED",
+  DEADLINE_APPROACHING: "DEADLINE_APPROACHING",
+  SYSTEM: "SYSTEM"
 };
 var SubscriptionStatus = {
   TRIALING: "TRIALING",
@@ -1473,6 +1497,12 @@ var resetPassword = async (payload) => {
     html
   });
 };
+var updateProfile = async (userId, payload) => {
+  return await prisma.user.update({
+    where: { id: userId },
+    data: { name: payload.name }
+  });
+};
 var AuthService = {
   registerIntoDB,
   verifyEmail,
@@ -1480,14 +1510,18 @@ var AuthService = {
   googleLogin,
   refreshToken,
   forgetPassword,
-  resetPassword
+  resetPassword,
+  updateProfile
 };
 
 // src/app/module/auth/auth.controller.ts
 var register = catchAsync(async (req, res, next) => {
   const body = req.body;
   const payload = req.file;
-  await AuthService.registerIntoDB(body, payload?.buffer);
+  if (!payload) {
+    return res.status(httpStatus3.BAD_REQUEST).json({ success: false, statusCode: httpStatus3.BAD_REQUEST, message: "Profile image is required.", data: null });
+  }
+  await AuthService.registerIntoDB(body, payload.buffer);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus3.CREATED,
@@ -1646,6 +1680,15 @@ var getMe = catchAsync(async (req, res) => {
     data: { user }
   });
 });
+var updateMe = catchAsync(async (req, res) => {
+  const result = await AuthService.updateProfile(req.user.userId, req.body);
+  sendResponse(res, {
+    statusCode: httpStatus3.OK,
+    success: true,
+    message: "Profile updated successfully",
+    data: { user: result }
+  });
+});
 var AuthController = {
   register,
   verifyEmail: verifyEmail2,
@@ -1655,7 +1698,8 @@ var AuthController = {
   forgetPassword: forgetPassword2,
   resetPassword: resetPassword2,
   logout,
-  getMe
+  getMe,
+  updateMe
 };
 
 // src/app/middleware/validationRequest.ts
@@ -1737,12 +1781,18 @@ var resetPasswordZodSchema = z.object({
     otp: z.string()
   })
 });
+var updateProfileZodSchema = z.object({
+  body: z.object({
+    name: z.string().min(1, "Name cannot be empty").optional()
+  })
+});
 var AuthValidation = {
   registerZodSchema,
   verifyEmailZodSchema,
   loginZodSchema,
   forgetPasswordZodSchema,
-  resetPasswordZodSchema
+  resetPasswordZodSchema,
+  updateProfileZodSchema
 };
 
 // src/app/lib/multer.ts
@@ -1796,6 +1846,7 @@ router.post("/forget-password", otpLimiter, validationRequest(AuthValidation.for
 router.post("/reset-password", authLimiter, validationRequest(AuthValidation.resetPasswordZodSchema), AuthController.resetPassword);
 router.post("/logout", AuthController.logout);
 router.get("/me", auth(), AuthController.getMe);
+router.patch("/me", auth(), validationRequest(AuthValidation.updateProfileZodSchema), AuthController.updateMe);
 var AuthRouter = router;
 
 // src/app/module/user/user.route.ts
@@ -1889,7 +1940,7 @@ var getAllUsersForAdmin2 = catchAsync(async (req, res, next) => {
   });
 });
 var toggleBlockUser2 = catchAsync(async (req, res, next) => {
-  const result = await UserService.toggleBlockUser(req.params.id, req.body.isBlocked);
+  const result = await UserService.toggleBlockUser(String(req.params.id), req.body.isBlocked);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus4.OK,
@@ -1898,7 +1949,7 @@ var toggleBlockUser2 = catchAsync(async (req, res, next) => {
   });
 });
 var softDeleteUser2 = catchAsync(async (req, res, next) => {
-  const result = await UserService.softDeleteUser(req.params.id);
+  const result = await UserService.softDeleteUser(String(req.params.id));
   sendResponse(res, {
     success: true,
     statusCode: httpStatus4.OK,
@@ -1953,7 +2004,7 @@ var createActivity = async (payload) => {
     console.error("Failed to create activity log", error);
   }
 };
-var getOrganizationActivities = async (organizationId, user) => {
+var getOrganizationActivities = async (organizationId, user, query) => {
   if (user.organizationId !== organizationId) {
     throw new Error("User does not belong to this organization");
   }
@@ -1963,19 +2014,69 @@ var getOrganizationActivities = async (organizationId, user) => {
   if (!organizationExists) {
     throw new Error("Organization not found");
   }
-  const activities = await prisma.activity.findMany({
-    where: {
-      organizationId
-    },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-    include: {
-      actor: { select: { id: true, name: true, avatar: true } }
-    }
-  });
-  return activities;
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+  const skip = (page - 1) * limit;
+  const [activities, total] = await Promise.all([
+    prisma.activity.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+      include: {
+        actor: { select: { id: true, name: true, avatar: true } }
+      }
+    }),
+    prisma.activity.count({
+      where: { organizationId }
+    })
+  ]);
+  const enrichedActivities = await Promise.all(
+    activities.map(async (activity) => {
+      let details = {};
+      details.organization = { id: organizationId, name: organizationExists.name };
+      if (activity.entityType === "TASK") {
+        const task = await prisma.task.findUnique({
+          where: { id: activity.entityId },
+          include: {
+            project: true,
+            sprint: true
+          }
+        });
+        if (task) {
+          details.task = { id: task.id, title: task.title };
+          details.project = { id: task.project.id, name: task.project.name };
+          if (task.sprint) {
+            details.sprint = { id: task.sprint.id, name: task.sprint.name };
+          }
+        }
+      } else if (activity.entityType === "PROJECT") {
+        const project = await prisma.project.findUnique({ where: { id: activity.entityId } });
+        if (project) {
+          details.project = { id: project.id, name: project.name };
+        }
+      } else if (activity.entityType === "SPRINT") {
+        const sprint = await prisma.sprint.findUnique({
+          where: { id: activity.entityId },
+          include: { project: true }
+        });
+        if (sprint) {
+          details.sprint = { id: sprint.id, name: sprint.name };
+          details.project = { id: sprint.project.id, name: sprint.project.name };
+        }
+      }
+      return {
+        ...activity,
+        details
+      };
+    })
+  );
+  return {
+    data: enrichedActivities,
+    meta: { page, limit, total, totalPages: Math.ceil(total / limit) }
+  };
 };
-var getEntityActivities = async (organizationId, entityType, entityId, user) => {
+var getEntityActivities = async (organizationId, entityType, entityId, user, query) => {
   if (user.organizationId !== organizationId) {
     throw new Error("User does not belong to this organization");
   }
@@ -1985,26 +2086,47 @@ var getEntityActivities = async (organizationId, entityType, entityId, user) => 
   if (!organizationExists) {
     throw new Error("Organization not found");
   }
-  const activities = await prisma.activity.findMany({
-    where: { organizationId },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-    include: {
-      actor: { select: { id: true, name: true, avatar: true } }
-    }
-  });
-  return activities;
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+  const skip = (page - 1) * limit;
+  const whereClause = { organizationId, entityType, entityId };
+  const [activities, total] = await Promise.all([
+    prisma.activity.findMany({
+      where: whereClause,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+      include: {
+        actor: { select: { id: true, name: true, avatar: true } }
+      }
+    }),
+    prisma.activity.count({ where: whereClause })
+  ]);
+  return {
+    data: activities,
+    meta: { page, limit, total, totalPages: Math.ceil(total / limit) }
+  };
 };
-var getGlobalActivities = async () => {
-  const activities = await prisma.activity.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 50,
-    include: {
-      actor: { select: { id: true, name: true, avatar: true, email: true } },
-      organization: { select: { id: true, name: true } }
-    }
-  });
-  return activities;
+var getGlobalActivities = async (query) => {
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+  const skip = (page - 1) * limit;
+  const [activities, total] = await Promise.all([
+    prisma.activity.findMany({
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+      include: {
+        actor: { select: { id: true, name: true, avatar: true, email: true } },
+        organization: { select: { id: true, name: true } }
+      }
+    }),
+    prisma.activity.count()
+  ]);
+  return {
+    data: activities,
+    meta: { page, limit, total, totalPages: Math.ceil(total / limit) }
+  };
 };
 var ActivityService = {
   createActivity,
@@ -2265,7 +2387,7 @@ var OrganizationBillingService = class {
     await redisClient.setEx(
       `bkash_intent:${bkashPayment.paymentID}`,
       3600,
-      JSON.stringify({ planId: payload.planId, interval: payload.interval })
+      JSON.stringify({ organizationId, planId: payload.planId, interval: payload.interval })
     );
     await ActivityService.createActivity({
       organizationId,
@@ -3244,7 +3366,7 @@ var getMembers = async (organizationId, query) => {
     take: limit,
     include: {
       user: {
-        select: { id: true, name: true, email: true, profilePicture: true, status: true }
+        select: { id: true, name: true, email: true, avatar: true, status: true, teamMembers: true }
       }
     },
     orderBy: { joinedAt: "desc" }
@@ -3322,7 +3444,10 @@ var createOrganization2 = catchAsync(async (req, res, next) => {
   const payload = req.file;
   const userId = req.user?.userId;
   console.log("userId", userId);
-  const result = await OrganizationService.createOrganization(body, payload?.buffer, userId);
+  if (!payload) {
+    return res.status(httpStatus6.BAD_REQUEST).json({ success: false, statusCode: httpStatus6.BAD_REQUEST, message: "Organization logo is required.", data: null });
+  }
+  const result = await OrganizationService.createOrganization(body, payload.buffer, userId);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus6.CREATED,
@@ -3819,8 +3944,12 @@ var permanentlyDeleteProject = async (organizationId, projectId, userId) => {
   if (!existingProject) {
     throw new Error("Project not found");
   }
-  await prisma.project.delete({
-    where: { id: projectId }
+  await prisma.project.update({
+    where: { id: projectId },
+    data: {
+      deletedAt: /* @__PURE__ */ new Date(),
+      status: "ARCHIVED"
+    }
   });
   await ActivityService.createActivity({
     organizationId,
@@ -3828,7 +3957,7 @@ var permanentlyDeleteProject = async (organizationId, projectId, userId) => {
     action: ActivityAction.DELETED,
     entityType: "PROJECT",
     entityId: projectId,
-    description: `Project ${existingProject.name} permanently deleted`
+    description: `Project ${existingProject.name} deleted`
   });
   return { id: projectId };
 };
@@ -3878,6 +4007,9 @@ var assignProjectManager = async (organizationId, projectId, memberId, userId) =
   });
   if (!manager) {
     throw new Error("Member not found in the organization");
+  }
+  if (manager.organizationRole !== OrganizationRole.PROJECT_MANAGER) {
+    throw new Error("Only organization members with the PROJECT_MANAGER role can manage this project");
   }
   const projectManager = await prisma.projectMember.upsert({
     where: {
@@ -5264,16 +5396,12 @@ import { Router as Router7 } from "express";
 // src/app/module/notification/notification.service.ts
 var NotificationService = class {
   static async createNotification(payload) {
-    try {
-      return await prisma.notification.create({
-        data: {
-          ...payload,
-          metadata: payload.metadata ? JSON.parse(JSON.stringify(payload.metadata)) : void 0
-        }
-      });
-    } catch (error) {
-      console.error("Failed to create notification", error);
-    }
+    return await prisma.notification.create({
+      data: {
+        ...payload,
+        metadata: payload.metadata ? JSON.parse(JSON.stringify(payload.metadata)) : void 0
+      }
+    });
   }
   static async getMyNotifications(organizationId, user) {
     return await prisma.notification.findMany({
@@ -5386,9 +5514,12 @@ var TaskService = class {
       await NotificationService.createNotification({
         userId: payload.assigneeId,
         organizationId,
+        type: NotificationType.TASK_ASSIGNED,
         title: "New Task Assigned",
-        content: `You have been assigned to task: ${task.title}`,
-        link: `/projects/${projectId}/tasks/${task.id}`
+        message: `You have been assigned to task: ${task.title}`,
+        entityType: "TASK",
+        entityId: task.id,
+        metadata: { projectId }
       });
     }
     return task;
@@ -5406,7 +5537,8 @@ var TaskService = class {
       take: limit,
       orderBy: { createdAt: "desc" },
       include: {
-        assignee: { select: { id: true, name: true, email: true } }
+        assignee: { select: { id: true, name: true, email: true } },
+        taskLabels: { include: { label: true } }
       }
     });
     return {
@@ -5430,7 +5562,8 @@ var TaskService = class {
       orderBy: { createdAt: "desc" },
       include: {
         project: { select: { id: true, name: true } },
-        assignee: { select: { id: true, name: true, email: true } }
+        assignee: { select: { id: true, name: true, email: true } },
+        taskLabels: { include: { label: true } }
       }
     });
     return {
@@ -5557,9 +5690,12 @@ var TaskService = class {
         await NotificationService.createNotification({
           userId: payload.assigneeId,
           organizationId,
+          type: NotificationType.TASK_ASSIGNED,
           title: "Task Assigned",
-          content: `You have been assigned to task: ${task.title}`,
-          link: `/projects/${projectId}/tasks/${task.id}`
+          message: `You have been assigned to task: ${task.title}`,
+          entityType: "TASK",
+          entityId: task.id,
+          metadata: { projectId }
         });
       }
     }
@@ -5934,7 +6070,17 @@ var CommentService = class {
       where: { taskId },
       orderBy: { createdAt: "asc" },
       include: {
-        user: { select: { id: true, name: true, avatar: true } }
+        user: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+            memberships: {
+              where: { organizationId },
+              select: { organizationRole: true }
+            }
+          }
+        }
       }
     });
   }
@@ -5968,6 +6114,35 @@ var CommentService = class {
       where: { id: commentId }
     });
   }
+  static async getOrgComments(user, organizationId) {
+    const isOrgAdmin = user.organizationRole === OrganizationRole.ORG_ADMIN;
+    return await prisma.comment.findMany({
+      where: {
+        task: {
+          project: {
+            organizationId,
+            ...isOrgAdmin ? {} : { members: { some: { userId: user.userId } } }
+          }
+        }
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+            memberships: {
+              where: { organizationId },
+              select: { organizationRole: true }
+            }
+          }
+        },
+        task: { select: { id: true, title: true, projectId: true, project: { select: { id: true, name: true } } } }
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50
+    });
+  }
 };
 
 // src/app/module/comment/comment.controller.ts
@@ -5988,11 +6163,16 @@ var deleteComment = catchAsync(async (req, res) => {
   const result = await CommentService.deleteComment(req.params.commentId, req.user, req.params.organizationId);
   sendResponse(res, { success: true, statusCode: httpStatus12.OK, message: "Comment deleted successfully", data: result });
 });
+var getOrgComments = catchAsync(async (req, res) => {
+  const result = await CommentService.getOrgComments(req.user, req.params.organizationId);
+  sendResponse(res, { success: true, statusCode: httpStatus12.OK, message: "Organization comments retrieved successfully", data: result });
+});
 var CommentController = {
   createComment,
   getComments,
   updateComment,
-  deleteComment
+  deleteComment,
+  getOrgComments
 };
 
 // src/app/module/comment/comment.validation.ts
@@ -6012,6 +6192,7 @@ var updateCommentSchema = z9.object({
 var router10 = Router9({ mergeParams: true });
 router10.post("/organizations/:organizationId/projects/:projectId/tasks/:taskId/create-comments", auth({ permissions: [Permissions.COMMENT_CREATE] }), validationRequest(createCommentSchema), CommentController.createComment);
 router10.get("/organizations/:organizationId/projects/:projectId/tasks/:taskId/get-comments", auth({ permissions: [Permissions.PROJECT_READ] }), CommentController.getComments);
+router10.get("/organizations/:organizationId/comments", auth({ permissions: [Permissions.PROJECT_READ] }), CommentController.getOrgComments);
 router10.patch("/organizations/:organizationId/projects/:projectId/update-comments/:commentId", auth({ permissions: [Permissions.COMMENT_UPDATE] }), validationRequest(updateCommentSchema), CommentController.updateComment);
 router10.delete("/organizations/:organizationId/projects/:projectId/delete-comments/:commentId", auth({ permissions: [Permissions.COMMENT_DELETE] }), CommentController.deleteComment);
 var CommentRoutes = router10;
@@ -6028,12 +6209,13 @@ cloudinary2.config({
   api_key: config_default.cloudinary_api_key,
   api_secret: config_default.cloudinary_api_secret
 });
-var uploadToCloudinary2 = (fileBuffer, folder = "attachments") => {
+var uploadToCloudinary2 = (fileBuffer, folder = "attachments", mimetype) => {
   return new Promise((resolve, reject) => {
+    const resourceType = mimetype === "application/pdf" ? "raw" : "auto";
     const uploadStream = cloudinary2.uploader.upload_stream(
       {
         folder,
-        resource_type: "auto"
+        resource_type: resourceType
       },
       (error, result) => {
         if (error) {
@@ -6087,7 +6269,7 @@ var AttachmentService = class {
     await this.verifyTaskAccess(taskId, organizationId, user);
     const attachments = await Promise.all(
       files.map(async (file) => {
-        const cloudinaryResult = await uploadToCloudinary2(file.buffer);
+        const cloudinaryResult = await uploadToCloudinary2(file.buffer, "attachments", file.mimetype);
         return prisma.attachment.create({
           data: {
             originalName: file.originalname,
@@ -6171,11 +6353,16 @@ var AttachmentService = class {
 // src/app/module/attachment/attachment.controller.ts
 import httpStatus13 from "http-status";
 var uploadAttachments = catchAsync(async (req, res) => {
-  if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
-    throw new Error("Files are required");
+  try {
+    if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+      throw new Error("Files are required");
+    }
+    const result = await AttachmentService.uploadAttachments(req.params.taskId, req.files, req.user, req.params.organizationId);
+    sendResponse(res, { success: true, statusCode: httpStatus13.CREATED, message: "Attachments uploaded successfully", data: result });
+  } catch (err) {
+    console.error("Upload error:", err);
+    sendResponse(res, { success: false, statusCode: httpStatus13.INTERNAL_SERVER_ERROR, message: err.message || "Upload failed", data: null });
   }
-  const result = await AttachmentService.uploadAttachments(req.params.taskId, req.files, req.user, req.params.organizationId);
-  sendResponse(res, { success: true, statusCode: httpStatus13.CREATED, message: "Attachments uploaded successfully", data: result });
 });
 var getAttachments = catchAsync(async (req, res) => {
   const result = await AttachmentService.getAttachments(req.params.taskId, req.user, req.params.organizationId);
@@ -6191,45 +6378,12 @@ var AttachmentController = {
   deleteAttachment
 };
 
-// src/app/module/attachment/attachment.validation.ts
-import { z as z10 } from "zod";
-var ALLOWED_MULTI_TYPES3 = {
-  image: ["image/jpeg", "image/jpg", "image/png", "image/webp"],
-  pdf: ["application/pdf"],
-  document: [
-    "application/pdf",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-  ],
-  audio: ["audio/mpeg", "audio/wav", "audio/mp4"],
-  video: ["video/mp4", "video/quicktime", "video/x-matroska"]
-};
-var singleFileEngine3 = (allowedTypes, maxMB) => {
-  return z10.object({
-    fieldname: z10.string(),
-    originalname: z10.string(),
-    encoding: z10.string(),
-    mimetype: z10.string().refine(
-      (type) => allowedTypes.includes(type),
-      { message: `Invalid format. Expected: ${allowedTypes.map((t) => t.split("/")[1]).join(", ")}` }
-    ),
-    size: z10.number().max(maxMB * 1024 * 1024, `Size exceeds limit of ${maxMB}MB`)
-  });
-};
-var createAttachmentSchema = z10.object({
-  files: z10.array(singleFileEngine3([...ALLOWED_MULTI_TYPES3.image, ...ALLOWED_MULTI_TYPES3.pdf, ...ALLOWED_MULTI_TYPES3.document, ...ALLOWED_MULTI_TYPES3.audio, ...ALLOWED_MULTI_TYPES3.video], 10)).max(10, "Only 10 files allowed")
-});
-var AttachmentValidation = {
-  createAttachmentSchema
-};
-
 // src/app/module/attachment/attachment.route.ts
 var router11 = Router10({ mergeParams: true });
 router11.post(
   "/organizations/:organizationId/projects/:projectId/tasks/:taskId/attachments",
   auth({ permissions: [Permissions.PROJECT_READ] }),
   upload2.array("files"),
-  validationRequest(AttachmentValidation.createAttachmentSchema),
   AttachmentController.uploadAttachments
 );
 router11.get("/organizations/:organizationId/projects/:projectId/tasks/:taskId/attachments", auth({ permissions: [Permissions.PROJECT_READ] }), AttachmentController.getAttachments);
@@ -6242,30 +6396,33 @@ import { Router as Router11 } from "express";
 // src/app/module/activity/activity.controller.ts
 import httpStatus14 from "http-status";
 var getOrganizationActivities2 = catchAsync(async (req, res, next) => {
-  const result = await ActivityService.getOrganizationActivities(req.params.organizationId, req.user);
+  const result = await ActivityService.getOrganizationActivities(req.params.organizationId, req.user, req.query);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus14.OK,
     message: "Activities retrieved successfully",
-    data: result
+    data: result.data,
+    meta: result.meta
   });
 });
 var getEntityActivities2 = catchAsync(async (req, res, next) => {
-  const result = await ActivityService.getEntityActivities(req.params.organizationId, req.params.entityType, req.params.entityId, req.user);
+  const result = await ActivityService.getEntityActivities(req.params.organizationId, req.params.entityType, req.params.entityId, req.user, req.query);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus14.OK,
     message: "Activities retrieved successfully",
-    data: result
+    data: result.data,
+    meta: result.meta
   });
 });
 var getGlobalActivities2 = catchAsync(async (req, res, next) => {
-  const result = await ActivityService.getGlobalActivities();
+  const result = await ActivityService.getGlobalActivities(req.query);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus14.OK,
     message: "Global activities retrieved successfully",
-    data: result
+    data: result.data,
+    meta: result.meta
   });
 });
 var ActivityController = {
@@ -6305,10 +6462,10 @@ var NotificationController = {
 };
 
 // src/app/module/notification/notification.validation.ts
-import { z as z11 } from "zod";
-var markReadSchema = z11.object({
-  body: z11.object({
-    notificationIds: z11.array(z11.string().uuid())
+import { z as z10 } from "zod";
+var markReadSchema = z10.object({
+  body: z10.object({
+    notificationIds: z10.array(z10.string().uuid())
   })
 });
 
@@ -6378,11 +6535,11 @@ var OrganizationBillingController = {
 };
 
 // src/app/module/organizationbilling/organizationbilling.validation.ts
-import { z as z12 } from "zod";
-var upgradePlanSchema = z12.object({
-  body: z12.object({
-    planId: z12.string().min(1, "Plan ID is required"),
-    interval: z12.nativeEnum(BillingInterval).optional()
+import { z as z11 } from "zod";
+var upgradePlanSchema = z11.object({
+  body: z11.object({
+    planId: z11.string().min(1, "Plan ID is required"),
+    interval: z11.nativeEnum(BillingInterval).optional()
   })
 });
 
@@ -6431,7 +6588,11 @@ var AdminBillingService = class {
         where: { transactionId: paymentID },
         data: { status: PaymentStatus.FAILED, failureReason: "User cancelled or failed" }
       });
-      return { success: false, message: "Payment cancelled or failed" };
+      return {
+        success: false,
+        outcome: status === "failure" ? "failed" : "cancelled",
+        message: status === "failure" ? "Your payment could not be completed." : "Payment was cancelled."
+      };
     }
     if (status === "success") {
       const executeResult = await executeBkashPayment(paymentID);
@@ -6482,9 +6643,14 @@ var AdminBillingService = class {
           });
         }
       });
-      return { success: true, message: "Payment successful" };
+      const updatedPlan = planId ? await prisma.plan.findUnique({ where: { id: planId }, select: { name: true } }) : null;
+      return {
+        success: true,
+        planName: updatedPlan?.name || "Pro",
+        message: "Payment successful"
+      };
     }
-    return { success: false, message: "Unknown status" };
+    return { success: false, outcome: "failed", message: "Payment could not be verified." };
   }
 };
 
@@ -6499,7 +6665,7 @@ var createPlan = catchAsync(async (req, res) => {
   sendResponse(res, { success: true, statusCode: httpStatus17.CREATED, message: "Plan created", data: result });
 });
 var updatePlan = catchAsync(async (req, res) => {
-  const result = await AdminBillingService.updatePlan(req.params.planId, req.body);
+  const result = await AdminBillingService.updatePlan(String(req.params.planId), req.body);
   sendResponse(res, { success: true, statusCode: httpStatus17.OK, message: "Plan updated", data: result });
 });
 var getAllSubscriptions = catchAsync(async (req, res) => {
@@ -6521,11 +6687,13 @@ var getAllPayments = catchAsync(async (req, res) => {
 var bkashCallback = catchAsync(async (req, res) => {
   const { paymentID, status } = req.query;
   const result = await AdminBillingService.executeBkashCallback(paymentID, status);
-  if (result.success) {
-    sendResponse(res, { success: true, statusCode: httpStatus17.OK, message: result.message, data: result });
-  } else {
-    sendResponse(res, { success: false, statusCode: httpStatus17.BAD_REQUEST, message: result.message, data: result });
-  }
+  const destination = result.success ? "payment/success" : result.outcome === "cancelled" ? "payment/cancelled" : "payment/failed";
+  const query = new URLSearchParams({
+    paymentID,
+    message: result.message
+  });
+  if (result.success) query.set("plan", result.planName || "Pro");
+  res.redirect(`${config_default.frontend_url}/${destination}?${query.toString()}`);
 });
 var AdminBillingController = {
   getPlans,
@@ -6539,23 +6707,23 @@ var AdminBillingController = {
 };
 
 // src/app/module/adminbilling/adminbilling.validation.ts
-import { z as z13 } from "zod";
-var nullableLimit = z13.number().int().nonnegative().nullable().optional();
-var createPlanSchema = z13.object({
-  body: z13.object({
-    name: z13.string().trim().min(1).max(80),
-    description: z13.string().trim().max(500).optional(),
-    priceMonthly: z13.number().nonnegative(),
-    priceYearly: z13.number().nonnegative(),
-    currency: z13.literal("BDT").default("BDT"),
+import { z as z12 } from "zod";
+var nullableLimit = z12.number().int().nonnegative().nullable().optional();
+var createPlanSchema = z12.object({
+  body: z12.object({
+    name: z12.string().trim().min(1).max(80),
+    description: z12.string().trim().max(500).optional(),
+    priceMonthly: z12.number().nonnegative(),
+    priceYearly: z12.number().nonnegative(),
+    currency: z12.literal("BDT").default("BDT"),
     maxMembers: nullableLimit,
     maxTeams: nullableLimit,
     maxProjects: nullableLimit,
-    maxStorageBytes: z13.coerce.bigint().nonnegative().nullable().optional(),
-    isActive: z13.boolean().optional()
+    maxStorageBytes: z12.coerce.bigint().nonnegative().nullable().optional(),
+    isActive: z12.boolean().optional()
   })
 });
-var updatePlanSchema = z13.object({
+var updatePlanSchema = z12.object({
   body: createPlanSchema.shape.body.partial().refine(
     (value) => value.currency === void 0 || value.currency === "BDT",
     "Only BDT plans are supported by the bKash checkout"
@@ -6578,7 +6746,18 @@ var AdminBillingRoutes = adminRouter;
 var app = express();
 app.use(
   cors({
-    origin: config_default.frontend_url,
+    origin: (requestOrigin, callback) => {
+      const allowedOrigins = [
+        config_default.frontend_url,
+        "https://project-management-system-frontend-gamma.vercel.app",
+        "http://localhost:3000"
+      ].filter(Boolean);
+      if (!requestOrigin || allowedOrigins.includes(requestOrigin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error("Origin is not allowed by CORS"));
+    },
     credentials: true
   })
 );
@@ -6712,6 +6891,78 @@ var seedSupperAdmin = async () => {
     console.log("Error while seeding super admin", error);
   }
 };
+var seedOrgnizerAdmin = async () => {
+  const name = config_default.super_organizer_name;
+  const email2 = config_default.super_organizer_email;
+  const password = config_default.super_organizer_password;
+  if (!name || !email2 || !password) {
+    console.log("Organizer admin name, email and password must be provided in the environment variables. Skipping seeding.");
+    return;
+  }
+  try {
+    const isExistSuperAdmin = await prisma.user.findUnique({
+      where: {
+        email: email2
+      }
+    });
+    if (isExistSuperAdmin) {
+      console.log("Organizer admin already exists. Skipping seeding.");
+      return;
+    }
+    const hashedPassword = await bcrypt2.hash(password, Number(config_default.bcrypt_salt_rounds));
+    const createSuperAdmin = await prisma.user.create({
+      data: {
+        name,
+        email: email2,
+        password: hashedPassword,
+        platformRole: PlatformRole.USER,
+        emailVerified: true
+      },
+      omit: {
+        password: true
+      }
+    });
+    const organization = await prisma.organization.create({
+      data: {
+        name: config_default.super_organizer_name,
+        slug: config_default.super_organizer_name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+        members: {
+          create: {
+            userId: createSuperAdmin.id,
+            organizationRole: "OWNER"
+          }
+        }
+      }
+    });
+    const demoUsers = [
+      { name: config_default.super_organizer_manager_name, email: config_default.super_organizer_manager_email, password: config_default.super_organizer_manager_password, role: OrganizationRole.PROJECT_MANAGER },
+      { name: config_default.super_organizer_team_leader_name, email: config_default.super_organizer_team_leader_email, password: config_default.super_organizer_team_leader_password, role: OrganizationRole.TEAM_LEAD },
+      { name: config_default.super_organizer_member_name, email: config_default.super_organizer_member_email, password: config_default.super_organizer_member_password, role: OrganizationRole.MEMBER }
+    ];
+    for (const demoUser of demoUsers) {
+      if (!demoUser.name || !demoUser.email || !demoUser.password) continue;
+      const user = await prisma.user.upsert({
+        where: { email: demoUser.email },
+        update: { name: demoUser.name, emailVerified: true },
+        create: {
+          name: demoUser.name,
+          email: demoUser.email,
+          password: await bcrypt2.hash(demoUser.password, Number(config_default.bcrypt_salt_rounds)),
+          platformRole: PlatformRole.USER,
+          emailVerified: true
+        }
+      });
+      await prisma.organizationMember.upsert({
+        where: { organizationId_userId: { organizationId: organization.id, userId: user.id } },
+        update: { organizationRole: demoUser.role },
+        create: { organizationId: organization.id, userId: user.id, organizationRole: demoUser.role }
+      });
+    }
+    console.log("Organizer admin created successfully", createSuperAdmin);
+  } catch (error) {
+    console.log("Error while seeding super admin", error);
+  }
+};
 
 // src/server.ts
 BigInt.prototype.toJSON = function() {
@@ -6726,6 +6977,7 @@ var main = async () => {
     console.log("Connected to the redis successfully");
     await seedPlans();
     await seedSupperAdmin();
+    await seedOrgnizerAdmin();
     app_default.listen(PORT, () => {
       console.log(`Server is running on port: http://localhost:${PORT}`);
     });

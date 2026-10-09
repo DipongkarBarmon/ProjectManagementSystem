@@ -49,10 +49,21 @@ Create `frontend/.env.local`:
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:5000/api/v1
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id
+
+# Optional: demo-only credentials matching the seeded backend users.
+NEXT_PUBLIC_DEMO_ADMIN_EMAIL=admin@example.com
+NEXT_PUBLIC_DEMO_ADMIN_PASSWORD=demo-password
+NEXT_PUBLIC_DEMO_PROJECT_MANAGER_EMAIL=project-manager@example.com
+NEXT_PUBLIC_DEMO_PROJECT_MANAGER_PASSWORD=demo-password
+NEXT_PUBLIC_DEMO_TEAM_LEADER_EMAIL=team-leader@example.com
+NEXT_PUBLIC_DEMO_TEAM_LEADER_PASSWORD=demo-password
+NEXT_PUBLIC_DEMO_MEMBER_EMAIL=member@example.com
+NEXT_PUBLIC_DEMO_MEMBER_PASSWORD=demo-password
 ```
 
 `NEXT_PUBLIC_API_URL` defaults to `http://localhost:5000/api/v1` when omitted.
-Do not commit `.env.local` or put private credentials in a `NEXT_PUBLIC_*`
+The demo variables are optional and should only contain non-production demo
+credentials. Never put private production credentials in a `NEXT_PUBLIC_*`
 variable.
 
 ## Main Routes

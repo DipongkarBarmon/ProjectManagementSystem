@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { PlatformRole } from "../../../generated/prisma/enums";
+import { OrganizationRole, PlatformRole } from "../../../generated/prisma/enums";
 import config from "../config";
 import { prisma } from "../lib/prisma"
 
@@ -10,7 +10,7 @@ export const seedPlans = async () => {
       console.log("Plans already exist. Skipping seeding.");
       return;
     }
-    
+
        console.log('Start seeding...')
 
   // Seed FREE Plan
@@ -114,6 +114,92 @@ export const seedSupperAdmin = async () => {
     })
 
     console.log("Super Admin created successfully", createSuperAdmin);
+
+
+  } catch (error) {
+    console.log("Error while seeding super admin", error);
+  }
+
+}
+
+
+export const seedOrgnizerAdmin = async () => {
+    const name = config.super_organizer_name;
+    const email = config.super_organizer_email;
+    const password = config.super_organizer_password;
+
+    if(!name || !email || !password) {
+      console.log("Organizer admin name, email and password must be provided in the environment variables. Skipping seeding.");
+      return;
+    }
+
+  try{
+      const isExistSuperAdmin = await prisma.user.findUnique({
+      where: {
+        email
+      }
+    })
+
+    if(isExistSuperAdmin){
+      console.log("Organizer admin already exists. Skipping seeding.");
+      return;
+
+    }
+
+    const hashedPassword = await bcrypt.hash(password , Number(config.bcrypt_salt_rounds));
+
+
+    const createSuperAdmin = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        platformRole: PlatformRole.USER,
+        emailVerified: true,
+        
+      },
+      omit: {
+        password: true,
+      },
+    })
+    
+    const organization = await prisma.organization.create({
+      data: {
+        name: config.super_organizer_name!,
+        slug: config.super_organizer_name!.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+        members: {
+          create: {
+            userId: createSuperAdmin.id,
+            organizationRole: "OWNER",
+          },
+        },
+      },
+    });
+    const demoUsers = [
+      { name: config.super_organizer_manager_name, email: config.super_organizer_manager_email, password: config.super_organizer_manager_password, role: OrganizationRole.PROJECT_MANAGER },
+      { name: config.super_organizer_team_leader_name, email: config.super_organizer_team_leader_email, password: config.super_organizer_team_leader_password, role: OrganizationRole.TEAM_LEAD },
+      { name: config.super_organizer_member_name, email: config.super_organizer_member_email, password: config.super_organizer_member_password, role: OrganizationRole.MEMBER },
+    ];
+    for (const demoUser of demoUsers) {
+      if (!demoUser.name || !demoUser.email || !demoUser.password) continue;
+      const user = await prisma.user.upsert({
+        where: { email: demoUser.email },
+        update: { name: demoUser.name, emailVerified: true },
+        create: {
+          name: demoUser.name,
+          email: demoUser.email,
+          password: await bcrypt.hash(demoUser.password, Number(config.bcrypt_salt_rounds)),
+          platformRole: PlatformRole.USER,
+          emailVerified: true,
+        },
+      });
+      await prisma.organizationMember.upsert({
+        where: { organizationId_userId: { organizationId: organization.id, userId: user.id } },
+        update: { organizationRole: demoUser.role },
+        create: { organizationId: organization.id, userId: user.id, organizationRole: demoUser.role },
+      });
+    }
+    console.log("Organizer admin created successfully", createSuperAdmin);
 
 
   } catch (error) {
