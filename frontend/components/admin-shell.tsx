@@ -27,6 +27,8 @@ export function AdminShell({ children, title }: { children: ReactNode; title: st
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // next-themes resolves the browser theme after hydration.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 

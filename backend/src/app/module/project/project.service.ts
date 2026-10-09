@@ -1,4 +1,4 @@
-import { UserStatus, ActivityAction } from "../../../../generated/prisma/enums"
+import { UserStatus, ActivityAction, OrganizationRole } from "../../../../generated/prisma/enums"
 import { ProjectWhereInput } from "../../../../generated/prisma/models"
 import { prisma } from "../../lib/prisma"
 import { ActivityService } from "../activity/activity.service"
@@ -362,8 +362,12 @@ const permanentlyDeleteProject = async (organizationId: string, projectId: strin
         throw new Error("Project not found")
     }
 
-    await prisma.project.delete({
+    await prisma.project.update({
         where: { id: projectId },
+        data: {
+            deletedAt: new Date(),
+            status: "ARCHIVED",
+        },
     })
 
     await ActivityService.createActivity({
@@ -372,7 +376,7 @@ const permanentlyDeleteProject = async (organizationId: string, projectId: strin
         action: ActivityAction.DELETED,
         entityType: "PROJECT",
         entityId: projectId,
-        description: `Project ${existingProject.name} permanently deleted`,
+        description: `Project ${existingProject.name} deleted`,
     })
 
     return { id: projectId }
@@ -435,6 +439,9 @@ const assignProjectManager = async (organizationId: string,projectId: string,mem
     })   
     if (!manager) { 
          throw new Error("Member not found in the organization")   
+    }
+    if (manager.organizationRole !== OrganizationRole.PROJECT_MANAGER) {
+        throw new Error("Only organization members with the PROJECT_MANAGER role can manage this project")
     }
     
     const projectManager = await prisma.projectMember.upsert({

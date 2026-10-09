@@ -44,6 +44,8 @@ export function WorkspaceShell({ children, title }: { children: ReactNode; title
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // next-themes resolves the browser theme after hydration.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
@@ -104,7 +106,7 @@ export function WorkspaceShell({ children, title }: { children: ReactNode; title
   async function logout() {
     try {
       await api.auth.logout();
-    } catch (e) {
+    } catch {
       // Ignore if logout fails
     }
     storeLogout();

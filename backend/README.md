@@ -39,6 +39,17 @@ REST API for multi-tenant project management, team collaboration, task tracking,
 | Payments | bKash Tokenized Checkout |
 | Deployment | Vercel |
 
+## Architecture
+
+The backend is organized by feature modules under `src/app/module`. Each module
+keeps its route, controller, service, validation, and interface code together.
+Shared concerns live in `src/app/config`, `src/app/lib`, `src/app/middleware`,
+and `src/app/utils`.
+
+The API is consumed by the Next.js frontend in `../frontend`. Authentication
+uses access and refresh tokens stored by the client as HTTP cookies. Requests
+from the local frontend must be allowed by `FRONTEND_URL`.
+
 ## Roles
 
 - `SUPER_ADMIN`: platform-level billing and payment administration.
@@ -248,6 +259,20 @@ npm run dev
 
 The API starts on `http://localhost:5000` by default. The root endpoint returns a simple health response.
 
+Run the Prisma seed when a local database needs the default plans or admin data:
+
+```bash
+npx prisma db seed
+```
+
+For a production-style run, generate the Prisma client, build the API, and
+start the compiled server:
+
+```bash
+npm run build
+npm start
+```
+
 Useful commands:
 
 ```bash
@@ -296,14 +321,32 @@ BKASH_APP_SECRET=your-bkash-app-secret
 BKASH_CALLBACK_URL=http://localhost:5000/api/v1/billing/bkash/callback
 BKASH_MERCHANT_NUMBER=your-merchant-number
 
-SUPER_ADMIN_NAME =Dipongkar Barman
-SUPER_ADMIN_EMAIL =dip@gmail.com
-SUPER_ADMIN_PASSWORD =super@admin123
+SUPER_ADMIN_NAME=Your Name
+SUPER_ADMIN_EMAIL=admin@example.com
+SUPER_ADMIN_PASSWORD=replace-with-a-strong-password
 ```
 
 The application configuration reads `JWT_ACCESS_EXPIRATION` and `JWT_REFRESH_EXPIRATION`. Keep those names consistent with the source configuration.
 
 The configured super-admin account is used for platform billing endpoints. Set `SUPER_ADMIN_EMAIL` and `SUPER_ADMIN_PASSWORD` in the deployment environment; never place the real values in this README.
+
+## Frontend Integration
+
+Start the backend before the frontend:
+
+```bash
+# terminal 1
+npm run dev
+
+# terminal 2
+cd ../frontend
+npm run dev
+```
+
+The frontend expects the API at `http://localhost:5000/api/v1` by default. To
+use another backend URL, set `NEXT_PUBLIC_API_URL` in `frontend/.env.local`.
+Keep the frontend origin aligned with `FRONTEND_URL` so authentication cookies
+and CORS requests work correctly.
 
 ## API Reference
 

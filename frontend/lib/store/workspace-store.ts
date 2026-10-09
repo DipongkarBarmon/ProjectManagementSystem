@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -10,6 +9,7 @@ export interface Organization {
   subscription?: {
     plan?: {
       name?: string;
+      maxProjects?: number | null;
     } | null;
   } | null;
 }

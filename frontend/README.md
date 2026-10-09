@@ -1,36 +1,105 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TaskFlow Frontend
 
-## Getting Started
+Next.js frontend for TaskFlow, a multi-tenant project management application.
+It provides the public landing page, authentication flows, workspace dashboard,
+project and task management, teams, sprints, labels, comments, member
+invitations, notifications, billing pages, and the super-admin console.
 
-First, run the development server:
+## Technology Stack
+
+- Next.js 16 App Router
+- React 19 and TypeScript
+- Tailwind CSS 4
+- TanStack Query for server-state fetching and mutations
+- Zustand for authentication and workspace state
+- `next-themes` for light/dark mode
+- Sonner and Lucide React for notifications and UI icons
+
+## Prerequisites
+
+- Node.js 20 or newer
+- The TaskFlow backend running locally or a deployed API
+- A Google OAuth client if Google sign-in is enabled
+
+## Local Setup
+
+Install dependencies and start the development server:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The application runs at [http://localhost:3000](http://localhost:3000).
+The backend should normally be available at
+[http://localhost:5000](http://localhost:5000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Useful commands:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm start
+npm run lint
+```
 
-## Learn More
+## Environment Variables
 
-To learn more about Next.js, take a look at the following resources:
+Create `frontend/.env.local`:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5000/api/v1
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+`NEXT_PUBLIC_API_URL` defaults to `http://localhost:5000/api/v1` when omitted.
+Do not commit `.env.local` or put private credentials in a `NEXT_PUBLIC_*`
+variable.
 
-## Deploy on Vercel
+## Main Routes
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Route | Purpose |
+| --- | --- |
+| `/` | Public TaskFlow homepage |
+| `/login` | Email/password and Google sign-in |
+| `/register` | Account registration |
+| `/dashboard` | Authenticated workspace dashboard |
+| `/projects` | Project list and project management |
+| `/tasks` | Task list and task details |
+| `/teams` | Team management |
+| `/sprints` | Sprint management |
+| `/members` | Organization members and invitations |
+| `/organizations` | Organization settings and member overview |
+| `/settings` | User, workspace, and billing settings |
+| `/admin` | Super-admin dashboard |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+After login, users return to the homepage. Authenticated users can open their
+workspace from the profile menu in the top-right navbar. Super admins are sent
+to `/admin`; regular users are sent to `/dashboard`.
+
+## Application Structure
+
+```text
+app/
+├── page.tsx                 # Public homepage
+├── login/ and register/     # Authentication pages
+├── dashboard/               # Workspace overview
+├── projects/, tasks/        # Core work management
+├── teams/, sprints/         # Collaboration and planning
+├── members/, invitations/  # Organization membership
+├── settings/                # User, workspace, and billing settings
+├── payment/                 # Payment result pages
+└── admin/                   # Super-admin routes
+components/
+├── auth-provider.tsx        # Auth initialization and route guards
+├── workspace-provider.tsx   # Organization loading and selection
+├── workspace-shell.tsx     # Authenticated workspace layout
+└── admin-shell.tsx         # Admin layout
+lib/
+├── api-client.ts            # Typed API request client
+└── store/                   # Zustand auth and workspace stores
+```
+
+## Backend
+
+See [the backend README](../backend/README.md) for database setup, API
+endpoints, authentication, billing configuration, and deployment notes.
