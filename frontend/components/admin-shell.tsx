@@ -4,7 +4,8 @@
 import { Activity, Bell, LayoutDashboard, LogOut, Menu, Moon, ShieldCheck, Sun, Users, X, CreditCard, Building, Banknote, ListPlus } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
+import { useTheme } from "next-themes";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { api } from "@/lib/api-client";
 
@@ -21,8 +22,15 @@ const navigation = [
 export function AdminShell({ children, title }: { children: ReactNode; title: string }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [dark, setDark] = useState(false);
   const [open, setOpen] = useState(false);
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const dark = mounted && resolvedTheme === "dark";
 
   const { user, logout: storeLogout } = useAuthStore();
 
@@ -47,9 +55,8 @@ export function AdminShell({ children, title }: { children: ReactNode; title: st
   };
 
   return (
-    <div className={dark ? "dark" : ""}>
-      <div className="min-h-screen bg-background text-foreground">
-        <aside className={`fixed inset-y-0 left-0 z-40 flex w-[248px] flex-col border-r bg-card px-4 py-5 transition-transform lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}>
+    <div className="min-h-screen bg-background text-foreground">
+      <aside className={`fixed inset-y-0 left-0 z-40 flex w-[248px] flex-col border-r bg-card px-4 py-5 transition-transform lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}>
           <div className="flex items-center justify-between px-2">
             <Link href="/admin" className="flex items-center gap-2.5">
               <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-600 text-white"><ShieldCheck size={17} fill="currentColor" /></span>
@@ -93,13 +100,12 @@ export function AdminShell({ children, title }: { children: ReactNode; title: st
               <span>Admin Portal</span><span>/</span><span className="font-medium text-foreground">{title}</span>
             </div>
             <div className="ml-auto flex items-center gap-2">
-              <button onClick={() => setDark(!dark)} className="flex size-9 items-center justify-center rounded-lg border bg-card text-muted-foreground hover:text-foreground" aria-label="Toggle theme">
-                {dark ? <Sun size={17} /> : <Moon size={17} />}
+              <button onClick={() => setTheme(dark ? "light" : "dark")} className="flex size-9 items-center justify-center rounded-lg border bg-card text-muted-foreground hover:text-foreground" aria-label="Toggle theme">
+                {mounted ? (dark ? <Sun size={17} /> : <Moon size={17} />) : <span className="size-[17px]" />}
               </button>
             </div>
           </header>
           {children}
-        </div>
       </div>
     </div>
   );

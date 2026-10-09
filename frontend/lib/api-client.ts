@@ -62,6 +62,20 @@ export type TaskSummary = {
   dueDate?: string;
 };
 
+export type BillingPlan = {
+  id: string;
+  name: string;
+  description?: string | null;
+  priceMonthly: string | number;
+  priceYearly: string | number;
+  currency: string;
+  maxMembers?: number | null;
+  maxTeams?: number | null;
+  maxProjects?: number | null;
+  maxStorageBytes?: string | number | null;
+  isActive: boolean;
+};
+
 let isRefreshing = false;
 let refreshSubscribers: ((success: boolean) => void)[] = [];
 
@@ -215,6 +229,16 @@ export const api = {
   },
   activity: {
     list: (orgId: string, params?: PaginationParams, options?: RequestInit) => request<any>(`/activities/organizations/${orgId}/get-activities${buildQuery(params)}`, options),
+  },
+  billing: {
+    availablePlans: (options?: RequestInit) => request<BillingPlan[]>("/billing/available-plans", options),
+    overview: (orgId: string, options?: RequestInit) => request<any>(`/billing/organizations/${orgId}/get-billing`, options),
+    upgrade: (orgId: string, payload: { planId: string; interval: "MONTHLY" | "YEARLY" }, options?: RequestInit) =>
+      request<{ bkashURL: string; invoice: unknown }>(`/billing/organizations/${orgId}/upgrade-billing`, {
+        ...options,
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
   },
   admin: {
     plans: {

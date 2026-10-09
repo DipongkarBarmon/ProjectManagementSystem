@@ -6,6 +6,13 @@ import { createBkashPayment } from "../../lib/bkash";
 import { redisClient } from "../../lib/redis";
 
 export class OrganizationBillingService {
+  static async getAvailablePlans() {
+    return prisma.plan.findMany({
+      where: { isActive: true },
+      orderBy: { priceMonthly: "asc" },
+    });
+  }
+
   static async checkLimit(organizationId: string, resource: "PROJECT" | "MEMBER" | "TEAM") {
     const subscription = await prisma.subscription.findUnique({
       where: { organizationId },
@@ -93,8 +100,13 @@ export class OrganizationBillingService {
 
 
   static async requestUpgrade(organizationId: string, payload: IUpgradePlanPayload, userId: string) {
-    const newPlan = await prisma.plan.findUnique({ where: { id: payload.planId } });
+    const newPlan = await prisma.plan.findFirst({
+      where: { id: payload.planId, isActive: true },
+    });
     if (!newPlan) throw new Error("Plan not found");
+    if (newPlan.currency !== "BDT") {
+      throw new Error("This plan is not configured for bKash BDT payments");
+    }
 
     const subscription = await prisma.subscription.findUnique({
       where: { organizationId },
@@ -152,8 +164,13 @@ export class OrganizationBillingService {
   }
 
   static async requestDowngrade(organizationId: string, payload: IUpgradePlanPayload, userId: string) {
-    const newPlan = await prisma.plan.findUnique({ where: { id: payload.planId } });
+    const newPlan = await prisma.plan.findFirst({
+      where: { id: payload.planId, isActive: true },
+    });
     if (!newPlan) throw new Error("Plan not found");
+    if (newPlan.currency !== "BDT") {
+      throw new Error("This plan is not configured for bKash BDT payments");
+    }
 
     const subscription = await prisma.subscription.findUnique({
       where: { organizationId },

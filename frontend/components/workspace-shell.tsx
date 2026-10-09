@@ -4,9 +4,11 @@
 import { Activity, Bell, ChevronDown, FolderKanban, LayoutDashboard, ListTodo, LogOut, Menu, Moon, Settings, ShieldCheck, Sun, Users, X, Zap } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ReactNode, useState } from "react";
+import { useTheme } from "next-themes";
+import { ReactNode, useState, useEffect, useRef, useCallback } from "react";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { api } from "@/lib/api-client";
+import { UpgradeModal } from "./upgrade-modal";
 
 const navigation = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -26,8 +28,52 @@ const management = [
 export function WorkspaceShell({ children, title }: { children: ReactNode; title: string }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [dark, setDark] = useState(false);
   const [open, setOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const dark = mounted && resolvedTheme === "dark";
+
+  const [sidebarWidth, setSidebarWidth] = useState(248);
+  const isResizing = useRef(false);
+
+  const startResizing = useCallback(() => {
+    isResizing.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    if (isResizing.current) {
+      isResizing.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+  }, []);
+
+  const resize = useCallback((e: MouseEvent) => {
+    if (isResizing.current) {
+      const newWidth = e.clientX;
+      if (newWidth >= 200 && newWidth <= 450) {
+        setSidebarWidth(newWidth);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("mousemove", resize);
+    window.addEventListener("mouseup", stopResizing);
+    return () => {
+      window.removeEventListener("mousemove", resize);
+      window.removeEventListener("mouseup", stopResizing);
+    };
+  }, [resize, stopResizing]);
 
   const { user, logout: storeLogout } = useAuthStore();
 
@@ -61,9 +107,16 @@ export function WorkspaceShell({ children, title }: { children: ReactNode; title
       ));
 
   return (
-    <div className={dark ? "dark" : ""}>
-      <div className="min-h-screen bg-background text-foreground">
-        <aside className={`fixed inset-y-0 left-0 z-40 flex w-[248px] flex-col border-r bg-card px-4 py-5 transition-transform lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}>
+    <div 
+      className="min-h-screen bg-background text-foreground"
+      style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}
+    >
+        <aside className={`fixed inset-y-0 left-0 z-40 flex w-[var(--sidebar-width)] flex-col border-r bg-card px-4 py-5 transition-transform lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}>
+          {/* Resize Handle */}
+          <div 
+            onMouseDown={startResizing}
+            className="absolute -right-1 top-0 z-50 h-full w-2 cursor-col-resize hover:bg-blue-500/50 active:bg-blue-500 transition-colors" 
+          />
           <div className="flex items-center justify-between px-2">
             <Link href="/" className="flex items-center gap-2.5">
               <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground"><Zap size={17} fill="currentColor" /></span>
@@ -87,21 +140,50 @@ export function WorkspaceShell({ children, title }: { children: ReactNode; title
             <p className="mb-2 mt-8 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Manage</p>
             {navItems(management)}
           </nav>
-          <div className="mt-auto border-t pt-4">
-            <div className="flex items-center gap-3 px-2">
-              <span className="flex size-7 items-center justify-center rounded-full bg-amber-100 text-[10px] font-semibold text-amber-700">
-                {getInitials(user?.name)}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-xs font-semibold">{user?.name || "User"}</span>
-                <span className="block text-[11px] text-muted-foreground">{user?.platformRole === "SUPER_ADMIN" ? "Super Admin" : "User"}</span>
-              </span>
-              <button onClick={logout} className="rounded-md p-1.5 text-muted-foreground hover:bg-red-50 hover:text-red-600" aria-label="Log out" title="Log out"><LogOut size={15} /></button>
+          <div className="relative mt-auto border-t pt-4">
+            
+            {/* Profile Popover */}
+            {isProfileOpen && (
+              <div className="absolute bottom-full left-0 mb-3 w-64 rounded-xl border bg-card p-1.5 shadow-xl dark:border-zinc-800">
+                <div className="px-2.5 py-2 text-xs text-muted-foreground">
+                  Signed in as <br />
+                  <span className="font-semibold text-foreground">{user?.email || user?.name || "User"}</span>
+                </div>
+                <div className="my-1 h-px bg-border" />
+                <Link href="/settings" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-muted">
+                  <Settings size={15} /> Settings
+                </Link>
+                <div className="my-1 h-px bg-border" />
+                <button onClick={logout} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30">
+                  <LogOut size={15} /> Log out
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border-2 border-blue-600 bg-background p-1.5 text-left transition-all hover:bg-muted/50 dark:border-blue-500"
+              >
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-500 text-[12px] font-bold text-white">
+                  {getInitials(user?.name)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13px] font-semibold leading-tight">{user?.name || "User"}</span>
+                  <span className="block truncate text-[11px] text-muted-foreground mt-0.5">Free</span>
+                </span>
+              </button>
+              <button 
+                onClick={() => setIsUpgradeOpen(true)}
+                className="shrink-0 rounded-full border bg-card px-3.5 py-2.5 text-[11px] font-semibold transition-colors hover:bg-muted"
+              >
+                Upgrade
+              </button>
             </div>
           </div>
         </aside>
         {open && <button className="fixed inset-0 z-30 bg-slate-950/30 lg:hidden" onClick={() => setOpen(false)} aria-label="Close navigation overlay" />}
-        <div className="lg:pl-[248px]">
+        <div className="lg:pl-[var(--sidebar-width)]">
           <header className="sticky top-0 z-20 flex h-[68px] items-center gap-4 border-b bg-background/90 px-5 backdrop-blur-md sm:px-8">
             <button onClick={() => setOpen(true)} className="rounded-lg p-2 text-muted-foreground hover:bg-muted lg:hidden" aria-label="Open navigation"><Menu size={20} /></button>
             <div className="hidden items-center gap-2 text-sm text-muted-foreground sm:flex">
@@ -111,8 +193,8 @@ export function WorkspaceShell({ children, title }: { children: ReactNode; title
               <button className="relative flex size-9 items-center justify-center rounded-lg border bg-card text-muted-foreground hover:text-foreground" aria-label="Notifications">
                 <Bell size={17} /><span className="absolute right-2 top-2 size-1.5 rounded-full bg-blue-600" />
               </button>
-              <button onClick={() => setDark(!dark)} className="flex size-9 items-center justify-center rounded-lg border bg-card text-muted-foreground hover:text-foreground" aria-label="Toggle theme">
-                {dark ? <Sun size={17} /> : <Moon size={17} />}
+              <button onClick={() => setTheme(dark ? "light" : "dark")} className="flex size-9 items-center justify-center rounded-lg border bg-card text-muted-foreground hover:text-foreground" aria-label="Toggle theme">
+                {mounted ? (dark ? <Sun size={17} /> : <Moon size={17} />) : <span className="size-[17px]" />}
               </button>
               <button onClick={logout} className="hidden items-center gap-2 rounded-lg border bg-card px-2.5 py-1.5 text-xs font-semibold sm:flex" title="Log out">
                 <span className="flex size-6 items-center justify-center rounded-full bg-amber-100 text-[9px] font-bold text-amber-700">
@@ -124,8 +206,8 @@ export function WorkspaceShell({ children, title }: { children: ReactNode; title
             </div>
           </header>
           {children}
-        </div>
       </div>
+      <UpgradeModal isOpen={isUpgradeOpen} onClose={() => setIsUpgradeOpen(false)} />
     </div>
   );
 }

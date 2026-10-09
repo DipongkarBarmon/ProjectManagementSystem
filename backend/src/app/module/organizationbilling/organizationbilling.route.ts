@@ -7,6 +7,7 @@ import { upgradePlanSchema } from "./organizationbilling.validation";
 
 const router = Router({ mergeParams: true });
 
+router.get("/available-plans", auth(), OrganizationBillingController.getAvailablePlans);
 
 router.post("/organizations/:organizationId/upgrade-billing", auth({ permissions: [Permissions.BILLING_MANAGE] }), validationRequest(upgradePlanSchema), OrganizationBillingController.requestUpgrade);
 

@@ -4,6 +4,16 @@ import { sendResponse } from "../../utils/sendResponse";
 import { OrganizationBillingService } from "./organizationbilling.service";
 import httpStatus from "http-status";
 
+const getAvailablePlans = catchAsync(async (_req: Request, res: Response) => {
+  const result = await OrganizationBillingService.getAvailablePlans();
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Available plans retrieved",
+    data: result,
+  });
+});
+
 const getBillingOverview = catchAsync(async (req: Request, res: Response) => {
   const result = await OrganizationBillingService.getBillingOverview(req.params.organizationId as string);
   sendResponse(res, { success: true, statusCode: httpStatus.OK, message: "Billing overview retrieved", data: result });
@@ -47,6 +57,7 @@ const resumeSubscription = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const OrganizationBillingController = {
+  getAvailablePlans,
   getBillingOverview,
   getUsage,
   getInvoices,

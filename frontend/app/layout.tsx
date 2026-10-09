@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { AuthProvider } from "@/components/auth-provider";
 import { WorkspaceProvider } from "@/components/workspace-provider";
 import { QueryProvider } from "@/components/query-provider";
+import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 const inter = Inter({
@@ -19,15 +20,22 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`}>
+    <html lang="en" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-full">
-        <QueryProvider>
-          <AuthProvider>
-            <WorkspaceProvider>
-              {children}
-            </WorkspaceProvider>
-          </AuthProvider>
-        </QueryProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <QueryProvider>
+            <AuthProvider>
+              <WorkspaceProvider>
+                {children}
+              </WorkspaceProvider>
+            </AuthProvider>
+          </QueryProvider>
+        </ThemeProvider>
         <Toaster richColors position="top-center" />
       </body>
     </html>

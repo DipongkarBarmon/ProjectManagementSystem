@@ -5,6 +5,7 @@ model Plan {
 
   priceMonthly    Decimal  @db.Decimal(10, 2)
   priceYearly     Decimal  @db.Decimal(10, 2)
+  currency        String   @default("BDT") @db.VarChar(3)
 
   maxMembers      Int?
   maxTeams        Int?

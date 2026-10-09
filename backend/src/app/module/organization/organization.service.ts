@@ -60,14 +60,16 @@ const createOrganization = async (payload : ICreateOrganization,fileBuffer : Buf
   }
 
   let cloudinaryResult;
-  try {
-     cloudinaryResult = await uploadToCloudinary(fileBuffer,'organization-logo')
-  } catch (error) {
-     throw new Error('Fail to upload logo in cloudinary!')
-  }
+  if (fileBuffer) {
+    try {
+       cloudinaryResult = await uploadToCloudinary(fileBuffer,'organization-logo')
+    } catch (error) {
+       throw new Error('Fail to upload logo in cloudinary!')
+    }
 
-  if(!cloudinaryResult) {
-     throw new Error("Does not upload logo in cloudinary,Please try again")
+    if(!cloudinaryResult) {
+       throw new Error("Does not upload logo in cloudinary,Please try again")
+    }
   }
 
   const freePlan = await prisma.plan.findUnique({ where: { name: 'FREE' } });
@@ -81,8 +83,8 @@ const createOrganization = async (payload : ICreateOrganization,fileBuffer : Buf
         name,
         slug,
         description,
-        logo: cloudinaryResult.secure_url,
-        logoPublicId: cloudinaryResult.public_id
+        logo: cloudinaryResult?.secure_url,
+        logoPublicId: cloudinaryResult?.public_id
       }
     });
 

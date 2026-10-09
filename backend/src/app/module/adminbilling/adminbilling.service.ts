@@ -9,11 +9,33 @@ export class AdminBillingService {
     return prisma.plan.findMany();
   }
 
-  static async createPlan(data: any) {
+  static async createPlan(data: {
+    name: string;
+    description?: string;
+    priceMonthly: number;
+    priceYearly: number;
+    currency?: string;
+    maxMembers?: number | null;
+    maxTeams?: number | null;
+    maxProjects?: number | null;
+    maxStorageBytes?: bigint | null;
+    isActive?: boolean;
+  }) {
     return prisma.plan.create({ data });
   }
 
-  static async updatePlan(planId: string, data: any) {
+  static async updatePlan(planId: string, data: Partial<{
+    name: string;
+    description: string | null;
+    priceMonthly: number;
+    priceYearly: number;
+    currency: string;
+    maxMembers: number | null;
+    maxTeams: number | null;
+    maxProjects: number | null;
+    maxStorageBytes: bigint | null;
+    isActive: boolean;
+  }>) {
     return prisma.plan.update({ where: { id: planId }, data });
   }
 

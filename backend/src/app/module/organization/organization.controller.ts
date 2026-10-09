@@ -8,9 +8,7 @@ const createOrganization = catchAsync(async(req : Request,res : Response , next 
     const payload = req.file
     const userId = req.user?.userId
     console.log("userId",userId)
-    if(!payload){
-       throw new Error("No File Provided!")
-   }
+    
     const result =await OrganizationService.createOrganization(body, payload?.buffer,userId as string)
     sendResponse(res,{
        success: true,

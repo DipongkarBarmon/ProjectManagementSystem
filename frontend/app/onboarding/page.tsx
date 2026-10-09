@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { ArrowRight, Zap, Loader2 } from "lucide-react";
+import { ArrowRight, Zap, Loader2, Building2, Sparkles, CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/api-client";
@@ -35,50 +35,100 @@ export default function OnboardingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background px-5 py-10 text-foreground sm:px-8">
-      <div className="mx-auto max-w-3xl">
-        <div className="flex items-center gap-2 font-semibold">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Zap size={17} fill="currentColor" />
+    <main className="grid min-h-screen bg-background lg:grid-cols-2">
+      {/* Left side - Dark/Brand side */}
+      <div className="relative hidden flex-col bg-zinc-950 p-10 text-white lg:flex">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_var(--tw-gradient-stops))] from-blue-900/20 via-zinc-950 to-zinc-950" />
+        
+        {/* Logo at the top */}
+        <div className="relative z-10 flex items-center gap-2 text-xl font-bold tracking-tight">
+          <span className="flex size-9 items-center justify-center rounded-xl bg-blue-600 text-white">
+            <Zap size={18} fill="currentColor" />
           </span>
           TaskFlow
         </div>
-        <div className="mt-14 grid gap-10 lg:grid-cols-[220px_1fr] lg:items-start">
-          <aside>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Getting started</p>
-            <div className="mt-5 space-y-4">
-              <p className="flex items-center gap-3 text-sm font-medium">
-                <span className="flex size-7 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">1</span>
-                Workspace
-              </p>
+
+        {/* Content perfectly centered */}
+        <div className="relative z-10 flex flex-1 flex-col justify-center">
+          <div className="max-w-md">
+            <h2 className="text-4xl font-semibold leading-[1.1] tracking-tight">
+              The foundation for your team's best work.
+            </h2>
+            <p className="mt-5 text-lg leading-relaxed text-zinc-400">
+              Create a dedicated workspace where your team can collaborate, track progress, and ship faster.
+            </p>
+
+            <div className="mt-12 space-y-5">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="text-blue-500" size={22} />
+                <span className="text-base font-medium text-zinc-300">Unlimited projects and tasks</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="text-blue-500" size={22} />
+                <span className="text-base font-medium text-zinc-300">Real-time collaboration</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="text-blue-500" size={22} />
+                <span className="text-base font-medium text-zinc-300">Advanced team permissions</span>
+              </div>
             </div>
-          </aside>
-          <section className="rounded-2xl border bg-card p-6 shadow-sm sm:p-8">
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight">Set up your workspace</h1>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">Give your team a clear home for projects, tasks, and decisions.</p>
-            
-            <label className="mt-8 block text-sm font-medium">
-              Workspace name
+          </div>
+        </div>
+      </div>
+
+      {/* Right side - Form side */}
+      <div className="flex flex-col items-center justify-center p-6 sm:p-12 lg:p-20">
+        <div className="w-full max-w-md">
+          <div className="mb-12 flex items-center gap-2 text-xl font-bold tracking-tight lg:hidden">
+            <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+              <Zap size={18} fill="currentColor" />
+            </span>
+            TaskFlow
+          </div>
+
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">
+            <Sparkles size={14} /> Almost there!
+          </div>
+
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Set up your workspace</h1>
+          <p className="mt-3 text-base text-muted-foreground">
+            Give your team a clear home for projects, tasks, and decisions. You can always change this later.
+          </p>
+          
+          <div className="mt-10 space-y-6">
+            <div>
+              <label className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
+                <Building2 size={16} className="text-muted-foreground" />
+                Workspace name
+              </label>
               <input 
                 value={workspace} 
                 onChange={(event) => setWorkspace(event.target.value)} 
-                className="mt-2 h-11 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30" 
-                placeholder="Acme Software" 
+                className="h-12 w-full rounded-xl border bg-background px-4 text-base outline-none transition-all focus:border-primary focus:ring-4 focus:ring-primary/10" 
+                placeholder="e.g. Acme Software" 
                 disabled={loading}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreateWorkspace();
+                }}
               />
-            </label>
-            
-            <div className="mt-8 flex justify-end">
-              <button 
-                disabled={!workspace.trim() || loading} 
-                onClick={handleCreateWorkspace} 
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-              >
-                {loading && <Loader2 size={16} className="animate-spin" />}
-                Create Workspace <ArrowRight size={16} />
-              </button>
             </div>
-          </section>
+            
+            <button 
+              disabled={!workspace.trim() || loading} 
+              onClick={handleCreateWorkspace} 
+              className="group flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-base font-semibold text-primary-foreground shadow-sm transition-all hover:bg-blue-700 hover:shadow-md disabled:opacity-50"
+            >
+              {loading ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <>
+                  Create Workspace 
+                  <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </main>
