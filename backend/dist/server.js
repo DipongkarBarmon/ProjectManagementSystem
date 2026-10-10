@@ -6900,38 +6900,39 @@ var seedOrgnizerAdmin = async () => {
     return;
   }
   try {
-    const isExistSuperAdmin = await prisma.user.findUnique({
-      where: {
-        email: email2
-      }
-    });
-    if (isExistSuperAdmin) {
-      console.log("Organizer admin already exists. Skipping seeding.");
-      return;
-    }
     const hashedPassword = await bcrypt2.hash(password, Number(config_default.bcrypt_salt_rounds));
-    const createSuperAdmin = await prisma.user.create({
-      data: {
+    const organizer = await prisma.user.upsert({
+      where: { email: email2 },
+      update: { name, emailVerified: true },
+      create: {
         name,
         email: email2,
         password: hashedPassword,
         platformRole: PlatformRole.USER,
         emailVerified: true
-      },
-      omit: {
-        password: true
       }
     });
-    const organization = await prisma.organization.create({
-      data: {
+    const organizationSlug = config_default.super_organizer_name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const organization = await prisma.organization.upsert({
+      where: { slug: organizationSlug },
+      update: { name: config_default.super_organizer_name },
+      create: {
         name: config_default.super_organizer_name,
-        slug: config_default.super_organizer_name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
-        members: {
-          create: {
-            userId: createSuperAdmin.id,
-            organizationRole: "OWNER"
-          }
+        slug: organizationSlug
+      }
+    });
+    await prisma.organizationMember.upsert({
+      where: {
+        organizationId_userId: {
+          organizationId: organization.id,
+          userId: organizer.id
         }
+      },
+      update: { organizationRole: OrganizationRole.OWNER },
+      create: {
+        organizationId: organization.id,
+        userId: organizer.id,
+        organizationRole: OrganizationRole.OWNER
       }
     });
     const demoUsers = [
@@ -6958,9 +6959,9 @@ var seedOrgnizerAdmin = async () => {
         create: { organizationId: organization.id, userId: user.id, organizationRole: demoUser.role }
       });
     }
-    console.log("Organizer admin created successfully", createSuperAdmin);
+    console.log("Organizer admin and demo members seeded successfully.");
   } catch (error) {
-    console.log("Error while seeding super admin", error);
+    console.log("Error while seeding organizer admin and demo members", error);
   }
 };
 

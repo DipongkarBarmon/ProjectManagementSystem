@@ -324,6 +324,19 @@ BKASH_MERCHANT_NUMBER=your-merchant-number
 SUPER_ADMIN_NAME=Your Name
 SUPER_ADMIN_EMAIL=admin@example.com
 SUPER_ADMIN_PASSWORD=replace-with-a-strong-password
+
+SUPER_ORGANIZER_NAME=Example Organization
+SUPER_ORGANIZER_EMAIL=organizer@example.com
+SUPER_ORGANIZER_PASSWORD=replace-with-a-strong-password
+SUPER_ORGANIZER_MANAGER_NAME=Project Manager
+SUPER_ORGANIZER_MANAGER_EMAIL=manager@example.com
+SUPER_ORGANIZER_MANAGER_PASSWORD=replace-with-a-strong-password
+SUPER_ORGANIZER_TEAM_LEADER_NAME=Team Leader
+SUPER_ORGANIZER_TEAM_LEADER_EMAIL=team-leader@example.com
+SUPER_ORGANIZER_TEAM_LEADER_PASSWORD=replace-with-a-strong-password
+SUPER_ORGANIZER_MEMBER_NAME=Member
+SUPER_ORGANIZER_MEMBER_EMAIL=member@example.com
+SUPER_ORGANIZER_MEMBER_PASSWORD=replace-with-a-strong-password
 ```
 
 The application configuration reads `JWT_ACCESS_EXPIRATION` and `JWT_REFRESH_EXPIRATION`. Keep those names consistent with the source configuration.
