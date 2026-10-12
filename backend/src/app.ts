@@ -22,23 +22,31 @@ import { OrganizationBillingRoutes } from './app/module/organizationbilling/orga
 import { AdminBillingRoutes } from './app/module/adminbilling/adminbilling.route'
 
 const app  : Application=express()
-app.use(
-	cors({
-		origin: (requestOrigin, callback) => {
-			const allowedOrigins = [
-				config.frontend_url,
-				"https://project-management-system-frontend-gamma.vercel.app",
-				"http://localhost:3000",
-			].filter(Boolean);
-			if (!requestOrigin || allowedOrigins.includes(requestOrigin)) {
-				callback(null, true);
-				return;
-			}
-			callback(new Error("Origin is not allowed by CORS"));
-		},
-		credentials: true,
-	}),
-);
+const corsOptions = {
+	origin: (requestOrigin: string | undefined, callback: (err: Error | null, origin?: boolean) => void) => {
+		const allowedOrigins = [
+			config.frontend_url,
+			"https://project-management-system-frontend-gamma.vercel.app",
+			"http://localhost:3000",
+		].filter(Boolean) as string[];
+
+		if (!requestOrigin) {
+			callback(null, true);
+			return;
+		}
+
+		const isAllowed = allowedOrigins.some(origin => requestOrigin.startsWith(origin));
+
+		if (isAllowed) {
+			callback(null, true);
+		} else {
+			callback(null, false);
+		}
+	},
+	credentials: true,
+};
+
+app.use(cors(corsOptions));
 app.use(express.urlencoded({extended : true}))
 app.use(express.raw())
 app.use(express.json())

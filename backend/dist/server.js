@@ -3444,10 +3444,7 @@ var createOrganization2 = catchAsync(async (req, res, next) => {
   const payload = req.file;
   const userId = req.user?.userId;
   console.log("userId", userId);
-  if (!payload) {
-    return res.status(httpStatus6.BAD_REQUEST).json({ success: false, statusCode: httpStatus6.BAD_REQUEST, message: "Organization logo is required.", data: null });
-  }
-  const result = await OrganizationService.createOrganization(body, payload.buffer, userId);
+  const result = await OrganizationService.createOrganization(body, payload?.buffer, userId);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus6.CREATED,
@@ -6744,23 +6741,27 @@ var AdminBillingRoutes = adminRouter;
 
 // src/app.ts
 var app = express();
-app.use(
-  cors({
-    origin: (requestOrigin, callback) => {
-      const allowedOrigins = [
-        config_default.frontend_url,
-        "https://project-management-system-frontend-gamma.vercel.app",
-        "http://localhost:3000"
-      ].filter(Boolean);
-      if (!requestOrigin || allowedOrigins.includes(requestOrigin)) {
-        callback(null, true);
-        return;
-      }
-      callback(new Error("Origin is not allowed by CORS"));
-    },
-    credentials: true
-  })
-);
+var corsOptions = {
+  origin: (requestOrigin, callback) => {
+    const allowedOrigins = [
+      config_default.frontend_url,
+      "https://project-management-system-frontend-gamma.vercel.app",
+      "http://localhost:3000"
+    ].filter(Boolean);
+    if (!requestOrigin) {
+      callback(null, true);
+      return;
+    }
+    const isAllowed = allowedOrigins.some((origin) => requestOrigin.startsWith(origin));
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      callback(null, false);
+    }
+  },
+  credentials: true
+};
+app.use(cors(corsOptions));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.raw());
 app.use(express.json());

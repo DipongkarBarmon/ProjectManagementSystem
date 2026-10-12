@@ -7,7 +7,7 @@ import { OrganizationWhereInput } from "../../../../generated/prisma/models";
 import { ActivityService } from "../activity/activity.service";
 import { UploadApiResponse } from "cloudinary";
 
-const createOrganization = async (payload : ICreateOrganization,fileBuffer : Buffer , userId : string) => {
+const createOrganization = async (payload : ICreateOrganization,fileBuffer : Buffer | undefined , userId : string) => {
   const {name,slug,description} = payload
   
   if(!slug){

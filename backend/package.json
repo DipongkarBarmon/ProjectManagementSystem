@@ -1,5 +1,5 @@
 {
-  "name": "projectmanagementsaas",
+  "name": "project-management-saas-backend1",
   "version": "0.0.1",
   "description": "",
   "license": "ISC",
@@ -10,7 +10,7 @@
     "generate": "node scripts/generate-module.js",
     "dev": "tsx watch src/server.ts",
     "build": "prisma generate && tsup",
-    "start": "node dist/src/server.js",
+    "start": "node dist/server.js",
     "test": "vitest run",
     "postinstall": "prisma generate",
     "format:check": "npx @biomejs/biome format ./src",
@@ -48,7 +48,6 @@
     "cloudinary": "^2.11.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
-    "crypto": "^1.0.1",
     "crypto-js": "^4.2.0",
     "dotenv": "^17.4.2",
     "ejs": "^6.0.1",
